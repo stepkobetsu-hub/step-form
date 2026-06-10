@@ -107,6 +107,7 @@ input[type=text]:focus,textarea:focus{border-color:#378ADD;background:#fff}
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="date-display" id="dateDisplay">日付を選んでください</div>
+    <p style="font-size:12px;color:#E24B4A;margin-top:6px">※複数日ある場合は、1つずつご連絡ください。</p>
   </div>
 
   <div class="card">
@@ -129,7 +130,7 @@ input[type=text]:focus,textarea:focus{border-color:#378ADD;background:#fff}
         <div class="type-label">早退</div>
       </div>
       <div class="type-card" style="grid-column:1/-1" onclick="selectType('欠席',this)">
-        <div class="type-icon">📅</div>
+        <div class="type-icon">🏠</div>
         <div class="type-label">欠席</div>
       </div>
     </div>
@@ -190,7 +191,7 @@ input[type=text]:focus,textarea:focus{border-color:#378ADD;background:#fff}
 
 <script>
 const LIFF_ID     = "1656223408-fglvoMbI";
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbysPvRC2tKOnEwgX3eQtGqBXQek16GKtNpp7p1cp06i4JU5Uwgd-crxkJS1n1CDNf_i4Q/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycby_E8J01JB8_9-wbLDwwMn6d3giu7TKGHmb72A_OJjmgsYOJQDI2PzFpffy31fouaCKOw/exec";
 
 let lineUserId = "", lineDisplayName = "";
 let curYear, curMonth, selectedDate=null, selectedType=null;
