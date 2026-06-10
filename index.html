@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>遅刻・欠席・早退 連絡</title>
+<script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5ede0;min-height:100vh;padding:1rem}
+.wrap{max-width:560px;margin:0 auto;padding-bottom:2rem}
+.header{border-left:4px solid #D85A30;padding-left:12px;margin-top:1rem;margin-bottom:1.5rem}
+h1{font-size:20px;font-weight:500;color:#333}
+.subtitle{font-size:13px;color:#888;margin-top:4px}
+.card{background:#fff;border-radius:12px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+.label{font-size:14px;font-weight:500;color:#333;margin-bottom:8px;display:flex;align-items:center;gap:4px}
+.req{color:#E24B4A;font-size:12px}
+input[type=text],textarea{width:100%;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#f9f9f9;color:#333;outline:none;font-family:inherit}
+input[type=text]:focus,textarea:focus{border-color:#378ADD;background:#fff}
+.radio-group{display:flex;flex-direction:column;gap:8px}
+.radio-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eee;border-radius:8px;cursor:pointer;transition:all 0.15s}
+.radio-item:hover{background:#f5f5f5}
+.radio-item.selected{border-color:#378ADD;background:rgba(55,138,221,0.06)}
+.radio-dot{width:18px;height:18px;border-radius:50%;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.radio-item.selected .radio-dot{border-color:#378ADD}
+.radio-dot-inner{width:9px;height:9px;border-radius:50%;background:#378ADD;display:none}
+.radio-item.selected .radio-dot-inner{display:block}
+.radio-label{font-size:14px;color:#333}
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.type-card{border:1px solid #eee;border-radius:10px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s}
+.type-card:hover{background:#f5f5f5}
+.type-card.selected{border-color:#378ADD;background:rgba(55,138,221,0.06)}
+.type-icon{font-size:24px;margin-bottom:4px}
+.type-label{font-size:13px;color:#333}
+.type-card.selected .type-label{color:#185FA5;font-weight:500}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-nav button{background:none;border:1px solid #ddd;border-radius:8px;padding:4px 12px;cursor:pointer;color:#666;font-size:16px}
+.cal-title{font-size:15px;font-weight:500;color:#333}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dow{font-size:11px;color:#999;text-align:center;padding:4px 0}
+.cal-day{font-size:13px;text-align:center;padding:7px 0;border-radius:6px;cursor:pointer;color:#333}
+.cal-day:hover{background:#f0f0f0}
+.cal-day.empty{cursor:default}
+.cal-day.today{font-weight:600;color:#378ADD}
+.cal-day.selected{background:#378ADD;color:#fff;font-weight:600}
+.date-display{font-size:14px;color:#185FA5;margin-top:10px;font-weight:500;min-height:20px}
+.other-input{margin-top:8px;display:none}
+.other-input.visible{display:block}
+.submit-btn{width:100%;padding:14px;background:#378ADD;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer;transition:background 0.15s}
+.submit-btn:hover{background:#185FA5}
+.submit-btn:disabled{background:#ccc;cursor:default}
+.success{display:none;text-align:center;padding:3rem 1rem}
+.success-icon{font-size:56px;margin-bottom:16px}
+.success h2{font-size:20px;font-weight:500;color:#333;margin-bottom:8px}
+.success p{font-size:14px;color:#888;line-height:1.6;margin-bottom:4px}
+.loading{display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:14px;color:#888}
+.user-badge{display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px;padding:8px 12px;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+.user-badge img{width:36px;height:36px;border-radius:50%}
+.user-badge-name{font-size:13px;color:#333;font-weight:500}
+.user-badge-sub{font-size:11px;color:#888}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">読み込み中...</div>
+
+<div class="wrap" id="formWrap" style="display:none">
+  <div class="header">
+    <h1>遅刻・欠席・早退 連絡</h1>
+    <p class="subtitle">連絡内容が複数日ある場合は、1つずつご連絡ください。</p>
+  </div>
+
+  <!-- LINEユーザー情報バッジ -->
+  <div class="user-badge" id="userBadge" style="display:none">
+    <img id="userIcon" src="" alt="">
+    <div>
+      <div class="user-badge-name" id="userName"></div>
+      <div class="user-badge-sub">LINEアカウントで送信します</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">生徒名 <span class="req">*</span></div>
+    <input type="text" id="name" placeholder="例：山田 太郎">
+  </div>
+
+  <div class="card">
+    <div class="label">校舎名 <span class="req">*</span></div>
+    <div class="radio-group" id="school">
+      <label class="radio-item" onclick="selectRadio(this,'school')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">神領校</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'school')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">大手町校</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">日付 <span class="req">*</span></div>
+    <div class="cal-nav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <span class="cal-title" id="calTitle"></span>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="date-display" id="dateDisplay">日付を選んでください</div>
+  </div>
+
+  <div class="card">
+    <div class="label">連絡種別 <span class="req">*</span></div>
+    <div class="type-grid" id="typeGrid">
+      <div class="type-card" onclick="selectType('5〜15分の遅刻',this)">
+        <div class="type-icon">🕐</div>
+        <div class="type-label">5〜15分の遅刻</div>
+      </div>
+      <div class="type-card" onclick="selectType('15〜30分の遅刻',this)">
+        <div class="type-icon">🕑</div>
+        <div class="type-label">15〜30分の遅刻</div>
+      </div>
+      <div class="type-card" onclick="selectType('30分以上の遅刻',this)">
+        <div class="type-icon">🕒</div>
+        <div class="type-label">30分以上の遅刻</div>
+      </div>
+      <div class="type-card" onclick="selectType('早退',this)">
+        <div class="type-icon">🚪</div>
+        <div class="type-label">早退</div>
+      </div>
+      <div class="type-card" style="grid-column:1/-1" onclick="selectType('欠席',this)">
+        <div class="type-icon">📅</div>
+        <div class="type-label">欠席</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">理由 <span class="req">*</span></div>
+    <div class="radio-group" id="reason">
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">部活などの学校行事</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">学校見学・説明会など</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">渋滞</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">ご家庭の事情（送迎できないなど）</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">体調不良</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">病院</span>
+      </label>
+      <label class="radio-item" onclick="selectRadio(this,'reason');document.getElementById('otherInput').classList.add('visible')">
+        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
+        <span class="radio-label">その他</span>
+      </label>
+    </div>
+    <div class="other-input" id="otherInput">
+      <input type="text" id="otherText" placeholder="理由を入力してください">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">その他・備考</div>
+    <p style="font-size:12px;color:#999;margin-bottom:8px">「30分以上遅刻の到着予定時間」「早退希望時間」など</p>
+    <textarea id="notes" rows="3" placeholder="例：17:30頃到着予定"></textarea>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="submitForm()">送信する</button>
+</div>
+
+<div class="success" id="successMsg">
+  <div class="success-icon">✅</div>
+  <h2>送信が完了しました</h2>
+  <p id="successDetail"></p>
+  <p style="margin-top:12px;font-size:13px;color:#aaa">LINEに受付完了メッセージが届きます</p>
+</div>
+
+<script>
+const LIFF_ID     = "1656223408-fglvoMbI";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbysPvRC2tKOnEwgX3eQtGqBXQek16GKtNpp7p1cp06i4JU5Uwgd-crxkJS1n1CDNf_i4Q/exec";
+
+let lineUserId = "", lineDisplayName = "";
+let curYear, curMonth, selectedDate=null, selectedType=null;
+const DOW=['日','月','火','水','木','金','土'];
+const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+async function initLiff(){
+  try{
+    await liff.init({liffId: LIFF_ID});
+    if(!liff.isLoggedIn()){
+      liff.login();
+      return;
+    }
+    const profile = await liff.getProfile();
+    lineUserId      = profile.userId;
+    lineDisplayName = profile.displayName;
+    document.getElementById('userIcon').src = profile.pictureUrl || '';
+    document.getElementById('userName').textContent = profile.displayName;
+    document.getElementById('userBadge').style.display = 'flex';
+  } catch(e){
+    console.warn('LIFF init failed:', e);
+  }
+  document.getElementById('loading').style.display='none';
+  document.getElementById('formWrap').style.display='block';
+  initCal();
+}
+
+function initCal(){
+  const t=new Date();
+  curYear=t.getFullYear(); curMonth=t.getMonth();
+  renderCal();
+}
+
+function renderCal(){
+  document.getElementById('calTitle').textContent=curYear+'年 '+MONTHS[curMonth];
+  const grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+  DOW.forEach(d=>{const el=document.createElement('div');el.className='cal-dow';el.textContent=d;grid.appendChild(el);});
+  const first=new Date(curYear,curMonth,1).getDay();
+  const days=new Date(curYear,curMonth+1,0).getDate();
+  const today=new Date();
+  for(let i=0;i<first;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}
+  for(let d=1;d<=days;d++){
+    const el=document.createElement('div');el.className='cal-day';el.textContent=d;
+    if(today.getFullYear()===curYear&&today.getMonth()===curMonth&&today.getDate()===d) el.classList.add('today');
+    if(selectedDate&&selectedDate.y===curYear&&selectedDate.m===curMonth&&selectedDate.d===d) el.classList.add('selected');
+    el.onclick=()=>pickDate(d);
+    grid.appendChild(el);
+  }
+}
+
+function pickDate(d){
+  selectedDate={y:curYear,m:curMonth,d:d};
+  renderCal();
+  const dd=new Date(curYear,curMonth,d);
+  document.getElementById('dateDisplay').textContent=curYear+'年'+(curMonth+1)+'月'+d+'日（'+DOW[dd.getDay()]+'）';
+}
+
+function changeMonth(dir){
+  curMonth+=dir;
+  if(curMonth>11){curMonth=0;curYear++;}
+  if(curMonth<0){curMonth=11;curYear--;}
+  renderCal();
+}
+
+function selectRadio(el,group){
+  document.querySelectorAll('#'+group+' .radio-item').forEach(r=>r.classList.remove('selected'));
+  el.classList.add('selected');
+  if(group==='reason'){
+    const isOther=el.querySelector('.radio-label').textContent==='その他';
+    document.getElementById('otherInput').classList.toggle('visible',isOther);
+  }
+}
+
+function selectType(type,el){
+  selectedType=type;
+  document.querySelectorAll('#typeGrid .type-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function submitForm(){
+  const name=document.getElementById('name').value.trim();
+  const school=document.querySelector('#school .selected .radio-label');
+  const reasonEl=document.querySelector('#reason .selected .radio-label');
+  if(!name||!school||!selectedDate||!selectedType||!reasonEl){
+    alert('必須項目（*）をすべて入力してください。');
+    return;
+  }
+  const reason=reasonEl.textContent==='その他'
+    ? (document.getElementById('otherText').value||'その他')
+    : reasonEl.textContent;
+  const dd=selectedDate;
+  const dateStr=dd.y+'年'+(dd.m+1)+'月'+dd.d+'日';
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='送信中...';
+  try{
+    await fetch(SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        name, school:school.textContent, date:dateStr,
+        type:selectedType, reason,
+        notes:document.getElementById('notes').value||'',
+        userId:lineUserId,
+        displayName:lineDisplayName
+      })
+    });
+    document.getElementById('successDetail').textContent=
+      name+'さん / '+school.textContent+' / '+dateStr+' / '+selectedType;
+    document.getElementById('formWrap').style.display='none';
+    document.getElementById('successMsg').style.display='block';
+  }catch(err){
+    alert('送信に失敗しました。時間をおいて再度お試しください。');
+    btn.disabled=false; btn.textContent='送信する';
+  }
+}
+
+initLiff();
+</script>
+</body>
+</html>
