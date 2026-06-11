@@ -287,27 +287,26 @@ async function submitForm(){
   const dateStr=dd.y+'年'+(dd.m+1)+'月'+dd.d+'日';
   const btn=document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='送信中...';
-  try{
-    await fetch(SCRIPT_URL,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        name, school:school.textContent, date:dateStr,
-        type:selectedType, reason,
-        notes:document.getElementById('notes').value||'',
-        userId:lineUserId,
-        displayName:lineDisplayName
-      })
-    });
-    document.getElementById('successDetail').textContent=
-      name+'さん / '+school.textContent+' / '+dateStr+' / '+selectedType;
-    document.getElementById('formWrap').style.display='none';
-    document.getElementById('successMsg').style.display='block';
-  }catch(err){
-    alert('送信に失敗しました。時間をおいて再度お試しください。');
-    btn.disabled=false; btn.textContent='送信する';
-  }
+
+  // 即座に完了画面を表示
+  document.getElementById('successDetail').textContent=
+    name+'さん / '+school.textContent+' / '+dateStr+' / '+selectedType;
+  document.getElementById('formWrap').style.display='none';
+  document.getElementById('successMsg').style.display='block';
+
+  // バックグラウンドで送信
+  fetch(SCRIPT_URL,{
+    method:'POST',
+    mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      name, school:school.textContent, date:dateStr,
+      type:selectedType, reason,
+      notes:document.getElementById('notes').value||'',
+      userId:lineUserId,
+      displayName:lineDisplayName
+    })
+  }).catch(err=>console.warn('送信エラー:', err));
 }
 
 initLiff();
