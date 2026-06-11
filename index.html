@@ -186,7 +186,10 @@ input[type=text]:focus,textarea:focus{border-color:#378ADD;background:#fff}
   <div class="success-icon">✅</div>
   <h2>送信が完了しました</h2>
   <p id="successDetail"></p>
-
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:1.5rem">
+    <button onclick="resetForm()" style="padding:12px;background:#378ADD;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer">📅 別日程を続けて連絡する</button>
+    <button onclick="closeApp()" style="padding:12px;background:#fff;color:#555;border:1px solid #ddd;border-radius:10px;font-size:15px;cursor:pointer">🏠 ホーム画面に戻る</button>
+  </div>
 </div>
 
 <script>
@@ -276,8 +279,33 @@ async function submitForm(){
   const name=document.getElementById('name').value.trim();
   const school=document.querySelector('#school .selected .radio-label');
   const reasonEl=document.querySelector('#reason .selected .radio-label');
-  if(!name||!school||!selectedDate||!selectedType||!reasonEl){
-    alert('必須項目（*）をすべて入力してください。');
+
+  // 未入力チェック＆該当箇所にスクロール
+  if(!name){
+    document.getElementById('name').focus();
+    document.getElementById('name').scrollIntoView({behavior:'smooth',block:'center'});
+    document.getElementById('name').style.borderColor='#E24B4A';
+    return;
+  }
+  if(!school){
+    document.getElementById('school').scrollIntoView({behavior:'smooth',block:'center'});
+    document.getElementById('school').style.outline='2px solid #E24B4A';
+    return;
+  }
+  if(!selectedDate){
+    document.getElementById('calGrid').scrollIntoView({behavior:'smooth',block:'center'});
+    document.getElementById('dateDisplay').style.color='#E24B4A';
+    document.getElementById('dateDisplay').textContent='日付を選んでください ← 必須';
+    return;
+  }
+  if(!selectedType){
+    document.getElementById('typeGrid').scrollIntoView({behavior:'smooth',block:'center'});
+    document.getElementById('typeGrid').style.outline='2px solid #E24B4A';
+    return;
+  }
+  if(!reasonEl){
+    document.getElementById('reason').scrollIntoView({behavior:'smooth',block:'center'});
+    document.getElementById('reason').style.outline='2px solid #E24B4A';
     return;
   }
   const reason=reasonEl.textContent==='その他'
@@ -307,6 +335,30 @@ async function submitForm(){
       displayName:lineDisplayName
     })
   }).catch(err=>console.warn('送信エラー:', err));
+}
+
+function closeApp(){
+  if(liff.isInClient()){
+    liff.closeWindow();
+  } else {
+    window.close();
+  }
+}
+
+function resetForm(){
+  document.getElementById('formWrap').style.display='block';
+  document.getElementById('successMsg').style.display='none';
+  document.getElementById('name').value='';
+  document.getElementById('notes').value='';
+  document.getElementById('otherText').value='';
+  document.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('selected'));
+  document.querySelectorAll('.type-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('otherInput').classList.remove('visible');
+  document.getElementById('submitBtn').disabled=false;
+  document.getElementById('submitBtn').textContent='送信する';
+  selectedDate=null; selectedType=null;
+  initCal();
+  document.getElementById('dateDisplay').textContent='日付を選んでください';
 }
 
 initLiff();
