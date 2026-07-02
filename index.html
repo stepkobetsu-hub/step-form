@@ -221,6 +221,18 @@ async function initLiff(){
   document.getElementById('loading').style.display='none';
   document.getElementById('formWrap').style.display='block';
   initCal();
+
+  // 前回の生徒名・校舎名を復元
+  const savedName = localStorage.getItem('step_name');
+  const savedSchool = localStorage.getItem('step_school');
+  if(savedName) document.getElementById('name').value = savedName;
+  if(savedSchool){
+    document.querySelectorAll('#school .radio-item').forEach(el=>{
+      if(el.querySelector('.radio-label').textContent === savedSchool){
+        el.classList.add('selected');
+      }
+    });
+  }
 }
 
 function initCal(){
@@ -314,6 +326,10 @@ async function submitForm(){
     : reasonEl.textContent;
   const dd=selectedDate;
   const dateStr=dd.y+'年'+(dd.m+1)+'月'+dd.d+'日';
+  // 生徒名・校舎名を保存
+  localStorage.setItem('step_name', name);
+  localStorage.setItem('step_school', school.textContent);
+
   const btn=document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='送信中...';
 
