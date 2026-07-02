@@ -87,16 +87,11 @@ input[type=text]::placeholder,textarea::placeholder{color:#ccc}
 
   <div class="card">
     <div class="label">校舎名 <span class="req">*</span></div>
-    <div class="radio-group" id="school">
-      <label class="radio-item" onclick="selectRadio(this,'school')">
-        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
-        <span class="radio-label">神領校</span>
-      </label>
-      <label class="radio-item" onclick="selectRadio(this,'school')">
-        <div class="radio-dot"><div class="radio-dot-inner"></div></div>
-        <span class="radio-label">大手町校</span>
-      </label>
-    </div>
+    <select id="school" onchange="saveSchool(this.value)" style="width:100%;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#f9f9f9;color:#333;outline:none;appearance:auto">
+      <option value="">選択してください</option>
+      <option value="神領校">神領校</option>
+      <option value="大手町校">大手町校</option>
+    </select>
   </div>
 
   <div class="card">
@@ -227,11 +222,7 @@ async function initLiff(){
   const savedSchool = localStorage.getItem('step_school');
   if(savedName) document.getElementById('name').value = savedName;
   if(savedSchool){
-    document.querySelectorAll('#school .radio-item').forEach(el=>{
-      if(el.querySelector('.radio-label').textContent === savedSchool){
-        el.classList.add('selected');
-      }
-    });
+    document.getElementById('school').value = savedSchool;
   }
 }
 
@@ -290,7 +281,8 @@ function selectType(type,el){
 
 async function submitForm(){
   const name=document.getElementById('name').value.trim();
-  const school=document.querySelector('#school .selected .radio-label');
+  const schoolEl=document.getElementById('school');
+  const school={textContent: schoolEl.value};
   const reasonEl=document.querySelector('#reason .selected .radio-label');
 
   // 未入力チェック＆該当箇所にスクロール
@@ -300,7 +292,7 @@ async function submitForm(){
     document.getElementById('name').style.borderColor='#E24B4A';
     return;
   }
-  if(!school){
+  if(!school.textContent){
     document.getElementById('school').scrollIntoView({behavior:'smooth',block:'center'});
     document.getElementById('school').style.outline='2px solid #E24B4A';
     return;
@@ -354,6 +346,10 @@ async function submitForm(){
   }).catch(err=>console.warn('送信エラー:', err));
 }
 
+function saveSchool(val){
+  if(val) localStorage.setItem('step_school', val);
+}
+
 function closeApp(){
   if(liff.isInClient()){
     liff.closeWindow();
@@ -368,7 +364,7 @@ function resetForm(){
   document.getElementById('name').value='';
   document.getElementById('notes').value='';
   document.getElementById('otherText').value='';
-  document.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('selected'));
+  // 校舎名はリセットしない（記憶したまま）
   document.querySelectorAll('.type-card').forEach(c=>c.classList.remove('selected'));
   document.getElementById('otherInput').classList.remove('visible');
   document.getElementById('submitBtn').disabled=false;
