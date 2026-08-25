@@ -279,9 +279,9 @@ function selectType(type,el){
   el.classList.add('selected');
 }
 
-function buildAdminMailSubject(name,school){
+function buildAdminMailSubject(name,school,type){
   const campusMark=school==='大手町校'?'【大手】':'【神領】';
-  return name+campusMark;
+  return name+campusMark+buildContactSummary(type);
 }
 
 function buildContactSummary(type){
@@ -332,7 +332,7 @@ async function submitForm(){
   const reason=reasonEl.textContent==='その他'
     ? (document.getElementById('otherText').value||'その他')
     : reasonEl.textContent;
-  const adminSubject=buildAdminMailSubject(name,school.textContent);
+  const adminSubject=buildAdminMailSubject(name,school.textContent,selectedType);
   const contactSummary=buildContactSummary(selectedType);
   const dd=selectedDate;
   const dateStr=dd.y+'年'+(dd.m+1)+'月'+dd.d+'日';
