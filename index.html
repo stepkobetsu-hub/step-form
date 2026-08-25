@@ -279,8 +279,12 @@ function selectType(type,el){
   el.classList.add('selected');
 }
 
-function buildAdminMailSubject(name,school,type){
-  const campusMark=school==='大手町校'?'【大】':'【神】';
+function buildAdminMailSubject(name,school){
+  const campusMark=school==='大手町校'?'【大手】':'【神領】';
+  return name+campusMark;
+}
+
+function buildContactSummary(type){
   const typeLabels={
     '5〜15分の遅刻':'遅刻:5～15分',
     '15〜30分の遅刻':'遅刻:15～30分',
@@ -288,7 +292,7 @@ function buildAdminMailSubject(name,school,type){
     '早退':'早退希望',
     '欠席':'欠席'
   };
-  return name+campusMark+(typeLabels[type]||type);
+  return typeLabels[type]||type;
 }
 
 async function submitForm(){
@@ -328,7 +332,8 @@ async function submitForm(){
   const reason=reasonEl.textContent==='その他'
     ? (document.getElementById('otherText').value||'その他')
     : reasonEl.textContent;
-  const adminSubject=buildAdminMailSubject(name,school.textContent,selectedType);
+  const adminSubject=buildAdminMailSubject(name,school.textContent);
+  const contactSummary=buildContactSummary(selectedType);
   const dd=selectedDate;
   const dateStr=dd.y+'年'+(dd.m+1)+'月'+dd.d+'日';
   // 生徒名・校舎名を保存
@@ -355,6 +360,8 @@ async function submitForm(){
       subject:adminSubject,
       emailSubject:adminSubject,
       adminSubject,
+      contactSummary,
+      emailPreview:contactSummary,
       notes:document.getElementById('notes').value||'',
       userId:lineUserId,
       displayName:lineDisplayName
