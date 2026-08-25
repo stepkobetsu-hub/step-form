@@ -281,7 +281,7 @@ function selectType(type,el){
 
 function buildAdminMailSubject(name,school,type){
   const campusMark=school==='大手町校'?'【大手】':'【神領】';
-  return name+campusMark+buildContactSummary(type);
+  return name+':'+buildContactSummary(type)+' '+campusMark;
 }
 
 function buildContactSummary(type){
