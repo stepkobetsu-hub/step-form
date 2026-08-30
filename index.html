@@ -280,8 +280,8 @@ function selectType(type,el){
 }
 
 function buildAdminMailSubject(name,school,type){
-  const campusMark=school==='大手町校'?'【大手】':'【神領】';
-  return name+':'+buildContactSummary(type)+' '+campusMark;
+  const campusLabel=school==='大手町校'?'大手':'神領';
+  return name+'【'+buildContactSummary(type)+'】（'+campusLabel+'）';
 }
 
 function buildContactSummary(type){
