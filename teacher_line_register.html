@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>授業報告 LINE通知登録</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f8f7;color:#17342d;font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+    main{width:min(100%,520px);margin:0 auto;padding:22px 16px 44px}.card{background:#fff;border-radius:22px;padding:24px 20px;box-shadow:0 12px 30px rgba(22,92,74,.12)}
+    .icon{width:68px;height:68px;border-radius:20px;background:#06c755;color:#fff;display:grid;place-items:center;font-size:34px;margin:0 auto 14px}
+    h1{font-size:22px;text-align:center;margin:0 0 8px}.lead{text-align:center;color:#5d736d;line-height:1.7;font-size:14px;margin:0 0 22px}
+    .profile{display:none;background:#edfff4;border:1px solid #b9efd0;border-radius:16px;padding:14px;margin-bottom:18px;align-items:center;gap:12px}.profile img{width:48px;height:48px;border-radius:50%;object-fit:cover}.profile strong{display:block}.profile small{color:#547068}
+    label{display:block;font-weight:700;margin:14px 0 7px}input{width:100%;padding:14px;border:2px solid #d9e5e1;border-radius:13px;font-size:18px}input:focus{outline:none;border-color:#06c755}
+    button{width:100%;border:0;border-radius:14px;padding:15px;font-size:17px;font-weight:800;cursor:pointer}.primary{background:#06c755;color:#fff;margin-top:18px}.primary:disabled{background:#9bb9ad;cursor:not-allowed}.secondary{background:#eef4f2;color:#31594f;margin-top:10px}
+    .status{display:none;margin-top:18px;padding:14px;border-radius:13px;line-height:1.6;font-size:14px}.status.ok{display:block;background:#eafff1;color:#126b38}.status.error{display:block;background:#fff0f0;color:#a32828}.status.info{display:block;background:#eef6ff;color:#245890}
+    .note{font-size:12px;color:#71827d;line-height:1.6;margin-top:18px}.loading{text-align:center;padding:20px;color:#56746c}
+  </style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="icon">LINE</div>
+    <h1>授業報告 LINE通知登録</h1>
+    <p class="lead">授業報告を忘れている場合に、当日22時10分ごろLINEでお知らせします。登録は最初の1回だけです。</p>
+    <div id="loading" class="loading">LINEを確認しています…</div>
+    <div id="content" hidden>
+      <div id="profile" class="profile"><img id="profileImage" alt=""><div><strong id="profileName"></strong><small>このLINEに通知します</small></div></div>
+      <label for="teacherCode">講師コード</label>
+      <input id="teacherCode" type="text" inputmode="numeric" maxlength="4" placeholder="例：7045" autocomplete="username">
+      <button id="registerButton" class="primary" type="button" onclick="registerLine()">このLINEを登録する</button>
+      <button class="secondary" type="button" onclick="location.href='https://stepkobetsu-hub.github.io/teacher-portal/'">講師ポータルへ戻る</button>
+      <div id="status" class="status"></div>
+      <p class="note">通知には、欠席・遅刻連絡で使用している「個別指導STEP」のLINE公式アカウントを使用します。公式アカウントをブロックすると通知は届きません。</p>
+    </div>
+  </div>
+</main>
+<script>
+const LIFF_ID='1656223408-fglvoMbI';
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbz6_kf6oXCUycashVMMQ9-hrA73CtopL7xwPsm0DYkE5MxXJyxJrhkdnghIS70_KC641w/exec';
+let lineProfile=null;
+
+function showStatus(message,type){const el=document.getElementById('status');el.textContent=message;el.className='status '+type}
+function callbackName(){return 'tlr_'+Date.now()+'_'+Math.floor(Math.random()*10000)}
+function jsonp(params){return new Promise((resolve,reject)=>{const cb=callbackName();const script=document.createElement('script');const timer=setTimeout(()=>{cleanup();reject(new Error('確認がタイムアウトしました。'))},12000);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=data=>{cleanup();resolve(data)};script.onerror=()=>{cleanup();reject(new Error('確認に失敗しました。'))};script.src=SCRIPT_URL+'?'+new URLSearchParams({...params,callback:cb});document.body.appendChild(script)})}
+
+async function init(){
+  const savedCode=localStorage.getItem('teacherCode')||'';
+  document.getElementById('teacherCode').value=savedCode;
+  try{
+    await liff.init({liffId:LIFF_ID});
+    if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return}
+    lineProfile=await liff.getProfile();
+    document.getElementById('profileName').textContent=lineProfile.displayName||'LINE利用者';
+    if(lineProfile.pictureUrl)document.getElementById('profileImage').src=lineProfile.pictureUrl;
+    document.getElementById('profile').style.display='flex';
+    if(savedCode){
+      try{const state=await jsonp({action:'teacherLineLinkStatus',code:savedCode});if(state&&state.linked)showStatus((state.name||'講師')+'さんのLINEは登録済みです。再登録すると現在のLINEへ更新します。','info')}catch(_){ }
+    }
+  }catch(error){
+    showStatus('LINEの確認ができませんでした。LINEアプリまたはLINEログイン後にもう一度お試しください。','error');
+  }finally{
+    document.getElementById('loading').hidden=true;
+    document.getElementById('content').hidden=false;
+  }
+}
+
+async function registerLine(){
+  const code=document.getElementById('teacherCode').value.trim();
+  if(!/^7\d{3}$/.test(code)){showStatus('4桁の講師コードを入力してください。','error');return}
+  if(!lineProfile||!lineProfile.userId){showStatus('LINE利用者情報を確認できません。LINEでログインしてからお試しください。','error');return}
+  const button=document.getElementById('registerButton');button.disabled=true;button.textContent='登録しています…';
+  try{
+    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'registerTeacherLine',code,userId:lineProfile.userId,displayName:lineProfile.displayName||''})});
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    const state=await jsonp({action:'teacherLineLinkStatus',code});
+    if(!state||!state.linked)throw new Error('登録を確認できませんでした。');
+    localStorage.setItem('teacherCode',code);
+    showStatus((state.name||'講師')+'さんのLINE通知を登録しました。','ok');
+    button.textContent='登録済み';
+  }catch(error){
+    showStatus(error.message||'登録できませんでした。もう一度お試しください。','error');
+    button.disabled=false;button.textContent='このLINEを登録する';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
