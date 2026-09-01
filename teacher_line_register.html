@@ -28,7 +28,12 @@
       <div id="profile" class="profile"><img id="profileImage" alt=""><div><strong id="profileName"></strong><small>このLINEに通知します</small></div></div>
       <label for="teacherCode">講師コード</label>
       <input id="teacherCode" type="text" inputmode="numeric" maxlength="4" placeholder="例：7045" autocomplete="username">
-      <button id="registerButton" class="primary" type="button" onclick="registerLine()">このLINEを登録する</button>
+      <button id="otpButton" class="primary" type="button" onclick="requestOtp()">確認番号をメールで受け取る</button>
+      <div id="otpArea" hidden>
+        <label for="otp">メールに届いた6桁の確認番号</label>
+        <input id="otp" type="text" inputmode="numeric" maxlength="6" placeholder="6桁の確認番号" autocomplete="one-time-code">
+        <button id="registerButton" class="primary" type="button" onclick="registerLine()">このLINEを登録する</button>
+      </div>
       <button class="secondary" type="button" onclick="location.href='https://stepkobetsu-hub.github.io/teacher-portal/'">講師ポータルへ戻る</button>
       <div id="status" class="status"></div>
       <p class="note">通知には、欠席・遅刻連絡で使用している「個別指導STEP」のLINE公式アカウントを使用します。公式アカウントをブロックすると通知は届きません。</p>
@@ -67,20 +72,40 @@ async function init(){
 
 async function registerLine(){
   const code=document.getElementById('teacherCode').value.trim();
+  const otp=document.getElementById('otp').value.trim();
   if(!/^7\d{3}$/.test(code)){showStatus('4桁の講師コードを入力してください。','error');return}
+  if(!/^\d{6}$/.test(otp)){showStatus('メールに届いた6桁の確認番号を入力してください。','error');return}
   if(!lineProfile||!lineProfile.userId){showStatus('LINE利用者情報を確認できません。LINEでログインしてからお試しください。','error');return}
   const button=document.getElementById('registerButton');button.disabled=true;button.textContent='登録しています…';
   try{
-    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'registerTeacherLine',code,userId:lineProfile.userId,displayName:lineProfile.displayName||''})});
+    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'registerTeacherLine',code,otp,userId:lineProfile.userId,displayName:lineProfile.displayName||''})});
     await new Promise(resolve=>setTimeout(resolve,1200));
     const state=await jsonp({action:'teacherLineLinkStatus',code});
-    if(!state||!state.linked)throw new Error('登録を確認できませんでした。');
+    if(!state||!state.linked)throw new Error('登録を確認できませんでした。確認番号を確認して、もう一度お試しください。');
     localStorage.setItem('teacherCode',code);
     showStatus((state.name||'講師')+'さんのLINE通知を登録しました。','ok');
     button.textContent='登録済み';
   }catch(error){
     showStatus(error.message||'登録できませんでした。もう一度お試しください。','error');
     button.disabled=false;button.textContent='このLINEを登録する';
+  }
+}
+
+async function requestOtp(){
+  const code=document.getElementById('teacherCode').value.trim();
+  if(!/^7\d{3}$/.test(code)){showStatus('4桁の講師コードを入力してください。','error');return}
+  if(!lineProfile||!lineProfile.userId){showStatus('LINE利用者情報を確認できません。LINEでログインしてからお試しください。','error');return}
+  const button=document.getElementById('otpButton');button.disabled=true;button.textContent='送信しています…';
+  try{
+    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'requestTeacherLineOtp',code,userId:lineProfile.userId})});
+    document.getElementById('otpArea').hidden=false;
+    document.getElementById('otp').focus();
+    showStatus('講師マスターのメールアドレスへ確認番号を送信しました。10分以内に入力してください。届かない場合は講師コードを確認してください。','info');
+    button.textContent='確認番号を再送する';
+    setTimeout(()=>{button.disabled=false},60000);
+  }catch(error){
+    showStatus('確認番号を送信できませんでした。もう一度お試しください。','error');
+    button.disabled=false;button.textContent='確認番号をメールで受け取る';
   }
 }
 
