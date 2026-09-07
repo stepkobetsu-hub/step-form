@@ -490,6 +490,22 @@ async function lookupZip(){
 document.getElementById('zip').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();lookupZip();}});
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
 
+/* 入力欄はハイフンなしのまま、反応リストへ送る値だけ読みやすく整形する */
+function digitsOnly(value){
+  return String(value||'').replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).replace(/\D/g,'');
+}
+function formatPhoneForList(value){
+  var digits=digitsOnly(value);
+  if(digits.length===11&&/^0(?:[5789]0)/.test(digits))return digits.slice(0,3)+'-'+digits.slice(3,7)+'-'+digits.slice(7);
+  if(digits.length===10&&digits.indexOf('0568')===0)return digits.slice(0,4)+'-'+digits.slice(4,6)+'-'+digits.slice(6);
+  if(digits.length===10)return digits.slice(0,3)+'-'+digits.slice(3,6)+'-'+digits.slice(6);
+  return value.trim();
+}
+function formatZipForList(value){
+  var digits=digitsOnly(value);
+  return digits.length===7?digits.slice(0,3)+'-'+digits.slice(3):value.trim();
+}
+
 function scrollToFirst(el){
   el.scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -585,8 +601,8 @@ async function submitForm(){
     gakunen:(document.querySelector('input[name="gakunen"]:checked')||{}).value||'',
     school:document.getElementById('school').value,
     seibetsu:(document.querySelector('input[name="seibetsu"]:checked')||{}).value||'',
-    tel:document.getElementById('tel').value,
-    zip:document.getElementById('zip').value,
+    tel:formatPhoneForList(document.getElementById('tel').value),
+    zip:formatZipForList(document.getElementById('zip').value),
     addr:document.getElementById('addr').value,
     email:document.getElementById('email').value,
     message:document.getElementById('message').value||'（なし）'
