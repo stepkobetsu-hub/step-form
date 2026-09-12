@@ -35,29 +35,30 @@ function teacherLineContactRecipients_() {
   if (!sheet || sheet.getLastRow() < 2) return [];
   const values = sheet.getDataRange().getDisplayValues(), headers = values[0];
   const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
-  const readings = teacherLineContactReadings_();
+  const profiles = teacherLineContactProfiles_();
   return values.slice(1).filter(row => row[col.code] && row[col.userId] && teacherLineContactEnabled_(row[col.enabled])).map(row => {
     const code = String(row[col.code]);
-    return {code:code,name:String(row[col.name] || ''),kana:readings[code] || '',school:''};
+    const profile = profiles[code] || {};
+    return {code:code,name:String(row[col.name] || ''),kana:profile.kana || '',school:profile.school || ''};
   });
 }
 
-function teacherLineContactReadings_() {
+function teacherLineContactProfiles_() {
   const sheet = SpreadsheetApp.openById(TLC_MASTER_SPREADSHEET_ID).getSheetByName(TLC_MASTER_SHEET);
   if (!sheet || sheet.getLastRow() < 5) return {};
-  const values = sheet.getRange(5,1,sheet.getLastRow()-4,3).getDisplayValues(), readings = {};
+  const values = sheet.getRange(5,1,sheet.getLastRow()-4,18).getDisplayValues(), profiles = {};
   values.forEach(row => {
-    const code = String(row[0] || '').trim(), reading = String(row[2] || '').trim();
-    if (code && reading) readings[code] = reading;
+    const code = String(row[0] || '').trim();
+    if (code) profiles[code] = {kana:String(row[2] || '').trim(),school:String(row[17] || '').trim()};
   });
-  return readings;
+  return profiles;
 }
 
 function teacherLineContactHistory_() {
   const sheet = SpreadsheetApp.openById(TLC_SPREADSHEET_ID).getSheetByName(TLC_HISTORY_SHEET);
   if (!sheet || sheet.getLastRow() < 2) return [];
   const start = Math.max(2, sheet.getLastRow() - 49), values = sheet.getRange(start,1,sheet.getLastRow()-start+1,8).getDisplayValues().reverse();
-  return values.map(row => ({sentAt:row[0],sender:row[2] || row[1],targets:row[4],count:row[5],result:row[6]}));
+  return values.map(row => ({sentAt:row[0],sender:row[2] || row[1],message:row[3],targets:row[4],count:row[5],result:row[6]}));
 }
 
 function teacherLineContactSend_(data, admin) {
