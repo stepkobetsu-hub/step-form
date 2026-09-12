@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#06c755">
+  <title>LINE講師連絡システム｜個別指導STEP</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%2306c755%22/><path d=%22M14 17h36v25H30l-10 8v-8h-6z%22 fill=%22white%22/></svg>">
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f1f6f4;color:#18352e;font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}.hidden{display:none!important}
+    header{background:#fff;border-bottom:1px solid #dbe7e2;position:sticky;top:0;z-index:5}.head{max-width:1040px;margin:auto;padding:13px 18px;display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;border-radius:13px;background:#06c755;color:#fff;display:grid;place-items:center;font-weight:900}.head h1{font-size:20px;margin:0}.head p{font-size:12px;color:#657b74;margin:2px 0 0}.back{margin-left:auto;color:#315d51;text-decoration:none;font-weight:700}
+    main{max-width:1040px;margin:22px auto;padding:0 16px 48px}.panel{background:#fff;border:1px solid #dbe7e2;border-radius:20px;padding:20px;box-shadow:0 10px 28px rgba(30,78,65,.07);margin-bottom:16px}h2{font-size:18px;margin:0 0 14px}.notice{padding:13px 15px;border-radius:12px;background:#eef6ff;color:#245890;line-height:1.55;margin-bottom:14px}.notice.error{background:#fff0f0;color:#a32828}.notice.ok{background:#eafff1;color:#126b38}
+    .filters{display:grid;grid-template-columns:1fr 180px;gap:10px;margin-bottom:12px}input,select,textarea{width:100%;font:inherit;border:2px solid #d8e5df;border-radius:12px;padding:12px;background:#fff}input:focus,select:focus,textarea:focus{outline:none;border-color:#06c755}textarea{min-height:190px;resize:vertical;line-height:1.65}.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.count{font-weight:800;color:#08783b;margin-left:auto}
+    button{border:0;border-radius:12px;padding:11px 16px;font:inherit;font-weight:800;cursor:pointer}.primary{background:#06c755;color:#fff}.secondary{background:#eaf2ef;color:#315d51}.danger{background:#d93025;color:#fff}.primary:disabled,.danger:disabled{background:#9fb3ac;cursor:not-allowed}.teacher-list{border:1px solid #dbe7e2;border-radius:14px;max-height:390px;overflow:auto}.teacher{display:grid;grid-template-columns:42px 80px 1fr 110px;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid #edf2f0;cursor:pointer}.teacher:last-child{border-bottom:0}.teacher:hover{background:#f4fbf7}.teacher input{width:21px;height:21px}.teacher .code{color:#6c7f79;font-variant-numeric:tabular-nums}.teacher .school{font-size:12px;color:#597069;text-align:right}.unlinked{color:#a32828}.layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}.preview{white-space:pre-wrap;background:#f6faf8;border:1px solid #dce8e3;border-radius:14px;padding:16px;min-height:190px;line-height:1.65}.help{font-size:13px;color:#667a74;line-height:1.6}.confirm{position:fixed;inset:0;background:rgba(10,34,27,.55);z-index:10;display:grid;place-items:center;padding:18px}.confirm-card{width:min(100%,560px);background:#fff;border-radius:20px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.25)}.confirm-card h2{color:#a32828}.confirm-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.history{width:100%;border-collapse:collapse;font-size:13px}.history th,.history td{text-align:left;padding:10px;border-bottom:1px solid #e6efeb;vertical-align:top}.history th{color:#587069}.login{max-width:440px;margin:56px auto}.login label{display:block;font-weight:700;margin:12px 0 6px}
+    @media(max-width:720px){.layout{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.teacher{grid-template-columns:34px 65px 1fr}.teacher .school{display:none}.head p{display:none}.count{width:100%;margin-left:0}.confirm-actions{flex-direction:column-reverse}.confirm-actions button{width:100%}}
+  </style>
+</head>
+<body>
+<header><div class="head"><div class="mark">LINE</div><div><h1>LINE講師連絡システム</h1><p>個別指導STEP・登録済み講師への業務連絡</p></div><a class="back" href="https://stepkobetsu-hub.github.io/step-workspace/">業務ホームへ</a></div></header>
+<main>
+  <section id="loading" class="panel"><div class="notice">登録済み講師を確認しています…</div></section>
+  <section id="login" class="panel login hidden">
+    <h2>スタッフ確認</h2><p class="help">同じブラウザで保存済みのスタッフ情報があれば自動で開きます。初回だけ入力してください。</p>
+    <form id="loginForm"><label for="staffCode">講師番号</label><input id="staffCode" inputmode="numeric" autocomplete="username"><label for="staffPassword">パスワード</label><input id="staffPassword" type="password" autocomplete="current-password"><button class="primary" type="submit" style="width:100%;margin-top:16px">開く</button></form>
+    <div id="loginMessage" class="notice error hidden" style="margin-top:14px"></div>
+  </section>
+  <div id="app" class="hidden">
+    <div id="message" class="notice hidden" role="status"></div>
+    <div class="layout">
+      <section class="panel"><h2>1. 送信する講師を選ぶ</h2><div class="filters"><input id="search" type="search" placeholder="講師番号・氏名で検索"><select id="school"><option value="">全校舎</option><option value="神領">神領校</option><option value="大手">大手町校</option></select></div><div class="tools"><button id="selectVisible" class="secondary" type="button">表示中を全員選択</button><button id="clearSelection" class="secondary" type="button">選択解除</button><span id="count" class="count">0人選択</span></div><div id="teacherList" class="teacher-list"></div></section>
+      <section class="panel"><h2>2. 連絡内容を入力する</h2><textarea id="body" maxlength="2000" placeholder="講師へ送る連絡内容を入力してください。"></textarea><div class="tools"><span id="chars" class="help">0 / 2000文字</span><button id="saveTemplate" class="secondary" type="button">この文章を端末に保存</button></div><h2 style="margin-top:18px">送信プレビュー</h2><div id="preview" class="preview">ここに送信内容が表示されます。</div><p class="help">講師ごとに1通ずつ、登録済みの個別指導STEP公式LINEから送信します。</p><button id="openConfirm" class="primary" type="button" style="width:100%;padding:16px;font-size:18px" disabled>送信内容を確認する</button></section>
+    </div>
+    <section class="panel"><h2>最近の送信履歴</h2><div style="overflow:auto"><table class="history"><thead><tr><th>送信日時</th><th>送信者</th><th>対象</th><th>件数</th><th>結果</th></tr></thead><tbody id="historyBody"></tbody></table></div></section>
+  </div>
+</main>
+<div id="confirm" class="confirm hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle"><div class="confirm-card"><h2 id="confirmTitle">この内容でLINEを送信しますか？</h2><p id="confirmTargets"></p><div id="confirmBody" class="preview"></div><p class="help">送信後は取り消せません。対象者と文章をもう一度確認してください。</p><div class="confirm-actions"><button id="cancelSend" class="secondary" type="button">戻って修正する</button><button id="send" class="danger" type="button">確認して送信する</button></div></div></div>
+<script src="teacher_line_contact.js"></script>
+</body>
+</html>
