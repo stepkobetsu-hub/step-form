@@ -6,6 +6,8 @@ const TLC_SPREADSHEET_ID = '1Cv3JgP7kXuFvch5PuHKVkdmjcFQ957qmaWuY9R-6lBA';
 const TLC_LINK_SHEET = '講師LINE連携';
 const TLC_HISTORY_SHEET = '講師LINE連絡履歴';
 const TLC_AUTH_URL = 'https://script.google.com/macros/s/AKfycbypkUc0MqZ07E7pZRglNPeRM56WbCcuWaLpRzi9bVFcPklHDxaaLC7GfzG6ozTGCbEX/exec';
+const TLC_MASTER_SPREADSHEET_ID = '1L5aFDXAmfUDkBg8d7X3WqJgMhdMq5tM5sfUZ2G-M58E';
+const TLC_MASTER_SHEET = '講師マスター';
 
 function teacherLineContactHandles_(action) {
   return ['teacherLineAdminRecipients','teacherLineAdminHistory','teacherLineAdminSend'].indexOf(String(action || '')) >= 0;
@@ -33,7 +35,22 @@ function teacherLineContactRecipients_() {
   if (!sheet || sheet.getLastRow() < 2) return [];
   const values = sheet.getDataRange().getDisplayValues(), headers = values[0];
   const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
-  return values.slice(1).filter(row => row[col.code] && row[col.userId] && teacherLineContactEnabled_(row[col.enabled])).map(row => ({code:String(row[col.code]),name:String(row[col.name] || ''),school:''}));
+  const readings = teacherLineContactReadings_();
+  return values.slice(1).filter(row => row[col.code] && row[col.userId] && teacherLineContactEnabled_(row[col.enabled])).map(row => {
+    const code = String(row[col.code]);
+    return {code:code,name:String(row[col.name] || ''),kana:readings[code] || '',school:''};
+  });
+}
+
+function teacherLineContactReadings_() {
+  const sheet = SpreadsheetApp.openById(TLC_MASTER_SPREADSHEET_ID).getSheetByName(TLC_MASTER_SHEET);
+  if (!sheet || sheet.getLastRow() < 5) return {};
+  const values = sheet.getRange(5,1,sheet.getLastRow()-4,3).getDisplayValues(), readings = {};
+  values.forEach(row => {
+    const code = String(row[0] || '').trim(), reading = String(row[2] || '').trim();
+    if (code && reading) readings[code] = reading;
+  });
+  return readings;
 }
 
 function teacherLineContactHistory_() {
