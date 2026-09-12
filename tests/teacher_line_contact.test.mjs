@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../teacher_line_contact.html',import.meta.url),'utf8');
+const js=readFileSync(new URL('../teacher_line_contact.js',import.meta.url),'utf8');
+const gas=readFileSync(new URL('../gas/TeacherLineContact.gs',import.meta.url),'utf8');
+assert.match(html,/LINE講師連絡システム/);
+assert.match(html,/確認して送信する/);
+assert.match(js,/teacherLineAdminRecipients/);
+assert.match(js,/teacherLineAdminSend/);
+assert.match(js,/stepStaffAppAuth/);
+assert.match(gas,/verifySystemPortal/);
+assert.match(gas,/LINE利用者ID/);
+assert.match(gas,/LockService/);
+assert.doesNotMatch(js,/LINE_CHANNEL_ACCESS_TOKEN\s*=/);
+console.log('teacher line contact tests passed');
