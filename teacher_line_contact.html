@@ -34,7 +34,7 @@
   </div>
 </main>
 <div id="confirm" class="confirm hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle"><div class="confirm-card"><h2 id="confirmTitle">この内容でLINEを送信しますか？</h2><p id="confirmTargets"></p><div id="confirmBody" class="preview"></div><div id="confirmImageWrap" class="confirm-image-wrap hidden"><img id="confirmImage" class="confirm-image" alt="送信する画像"></div><p class="help">送信後は取り消せません。対象者・文章・画像をもう一度確認してください。</p><div class="confirm-actions"><button id="cancelSend" class="secondary" type="button">戻って修正する</button><button id="send" class="danger" type="button">確認して送信する</button></div></div></div>
-<script src="teacher_line_contact.js?v=20260913-roster-fix-v3"></script>
+<script src="teacher_line_contact.js?v=20260913-sendfix-v1"></script>
 <script>
 (() => {
   const logout=document.getElementById('logoutBtn');
@@ -43,41 +43,8 @@
     sessionToken='';
     location.reload();
   });
-
-  const sync=document.getElementById('forceRosterSync');
-  if(sync) sync.addEventListener('click',async()=>{
-    const original=sync.textContent;
-    sync.disabled=true;
-    sync.textContent='更新しています…';
-    notice('講師マスターの在籍・よみ・教室を同期しています…');
-    try{
-      const result=await api('teacherLineAdminSyncRoster');
-      let latest=Array.isArray(result?.teachers)?result.teachers:[];
-      if(!latest.length){
-        try{
-          const reread=await api('teacherLineAdminRecipients');
-          latest=Array.isArray(reread?.teachers)?reread.teachers:[];
-        }catch(e){}
-      }
-      if(latest.length){
-        teachers=latest;
-        for(const code of [...selected]) if(!teachers.some(t=>String(t.code)===String(code))) selected.delete(code);
-        renderTeachers();
-        notice(`講師情報を強制更新しました（在籍・よみ・教室／${teachers.length}人表示）。`,'ok');
-      }else{
-        renderTeachers();
-        notice('同期後の一覧取得が0件だったため、現在の講師一覧は消さずに保持しています。','error');
-      }
-    }catch(err){
-      renderTeachers();
-      notice('強制更新に失敗しました。現在の講師一覧はそのまま保持しています：'+String(err?.message||err),'error');
-    }finally{
-      sync.disabled=false;
-      sync.textContent=original;
-    }
-  });
 })();
 </script>
-<script src="teacher_roster_direct.js?v=20260913-direct-roster-v1"></script>
+<script src="teacher_roster_direct.js?v=20260913-live-refresh-v2"></script>
 </body>
 </html>
