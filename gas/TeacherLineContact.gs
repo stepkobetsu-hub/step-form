@@ -11,6 +11,7 @@ const TLC_MASTER_SHEET = '講師マスター';
 const TLC_IMAGE_FOLDER_PROPERTY = 'TLC_IMAGE_FOLDER_ID';
 const TLC_IMAGE_FOLDER_NAME = 'LINE講師連絡画像（7日後自動削除）';
 const TLC_IMAGE_RETENTION_DAYS = 7;
+const TLC_ROSTER_SYNC_HANDLER = 'teacherLineContactSyncRoster';
 
 function teacherLineContactHandles_(action) {
   return ['teacherLineAdminRecipients','teacherLineAdminHistory','teacherLineAdminSend'].indexOf(String(action || '')) >= 0;
@@ -33,36 +34,58 @@ function teacherLineContactVerifyAdmin_(token) {
   return {code:String(result.loginId || result.code || ''),name:String(result.name || ''),permissionLevel:String(result.permissionLevel)};
 }
 
+/**
+ * 画面表示用。講師マスターは読まず、「講師LINE連携」だけで完結させる。
+ * H=在籍(1)、I=よみ、J=校舎 は別の同期処理で更新する。
+ */
 function teacherLineContactRecipients_() {
   const sheet = SpreadsheetApp.openById(TLC_SPREADSHEET_ID).getSheetByName(TLC_LINK_SHEET);
   if (!sheet || sheet.getLastRow() < 2) return [];
   const values = sheet.getDataRange().getDisplayValues(), headers = values[0];
-  const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
-  const profiles = teacherLineContactProfiles_();
+  const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効','在籍','よみ','校舎']);
   return values.slice(1).filter(row => {
-    const code = String(row[col.code] || '').trim();
-    const profile = profiles[code];
-    return code && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && profile && profile.active;
-  }).map(row => {
-    const code = String(row[col.code] || '').trim();
-    const profile = profiles[code] || {};
-    return {code:code,name:String(row[col.name] || ''),kana:profile.kana || '',school:profile.school || ''};
-  });
+    return row[col.code] && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && teacherLineContactActive_(row[col.active]);
+  }).map(row => ({
+    code:String(row[col.code] || '').trim(),
+    name:String(row[col.name] || '').trim(),
+    kana:String(row[col.kana] || '').trim(),
+    school:String(row[col.school] || '').trim()
+  }));
 }
 
-function teacherLineContactProfiles_() {
-  const sheet = SpreadsheetApp.openById(TLC_MASTER_SPREADSHEET_ID).getSheetByName(TLC_MASTER_SHEET);
-  if (!sheet || sheet.getLastRow() < 5) return {};
-  const values = sheet.getRange(5,1,sheet.getLastRow()-4,18).getDisplayValues(), profiles = {};
-  values.forEach(row => {
+/** 講師マスター D列=1 を「講師LINE連携」の H:I:J に同期する。 */
+function teacherLineContactSyncRoster() {
+  const master = SpreadsheetApp.openById(TLC_MASTER_SPREADSHEET_ID).getSheetByName(TLC_MASTER_SHEET);
+  const link = SpreadsheetApp.openById(TLC_SPREADSHEET_ID).getSheetByName(TLC_LINK_SHEET);
+  if (!master || !link || master.getLastRow() < 5 || link.getLastRow() < 2) return {updated:0};
+
+  const masterValues = master.getRange(5,1,master.getLastRow()-4,18).getDisplayValues();
+  const profiles = {};
+  masterValues.forEach(row => {
     const code = String(row[0] || '').trim();
-    if (code) profiles[code] = {
+    if (!code) return;
+    profiles[code] = {
+      active:String(row[3] || '').trim() === '1' ? '1' : '',
       kana:String(row[2] || '').trim(),
-      active:String(row[3] || '').trim() === '1',
       school:String(row[17] || '').trim()
     };
   });
-  return profiles;
+
+  const lastRow = link.getLastRow();
+  const codes = link.getRange(2,1,lastRow-1,1).getDisplayValues();
+  const out = codes.map(row => {
+    const profile = profiles[String(row[0] || '').trim()] || {};
+    return [profile.active || '', profile.kana || '', profile.school || ''];
+  });
+  link.getRange(2,8,out.length,3).setValues(out);
+  return {updated:out.length};
+}
+
+/** 初回だけ実行。以後1時間ごとに在籍・よみ・校舎を同期する。 */
+function teacherLineContactSetupRosterSync() {
+  const exists = ScriptApp.getProjectTriggers().some(trigger => trigger.getHandlerFunction() === TLC_ROSTER_SYNC_HANDLER);
+  if (!exists) ScriptApp.newTrigger(TLC_ROSTER_SYNC_HANDLER).timeBased().everyHours(1).create();
+  return teacherLineContactSyncRoster();
 }
 
 function teacherLineContactHistory_() {
@@ -84,12 +107,10 @@ function teacherLineContactSend_(data, admin) {
   if (!lock.tryLock(10000)) throw new Error('別の送信処理中です。少し待ってからもう一度お試しください。');
   try {
     const sheet = SpreadsheetApp.openById(TLC_SPREADSHEET_ID).getSheetByName(TLC_LINK_SHEET), values = sheet.getDataRange().getDisplayValues(), headers = values[0];
-    const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
-    const profiles = teacherLineContactProfiles_();
+    const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効','在籍','よみ','校舎']);
     const targets = values.slice(1).filter(row => {
       const code = String(row[col.code] || '').trim();
-      const profile = profiles[code];
-      return codes.indexOf(code) >= 0 && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && profile && profile.active;
+      return codes.indexOf(code) >= 0 && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && teacherLineContactActive_(row[col.active]);
     });
     if (targets.length !== codes.length) throw new Error('LINE未登録・無効、または在籍ではない講師が含まれています。画面を再読み込みしてください。');
     const image = imageDataUrl ? teacherLineContactStoreImage_(imageDataUrl, data.imageName, admin) : null;
@@ -161,8 +182,12 @@ function teacherLineContactSetupImageStorage() {
 function teacherLineContactColumns_(headers, required) {
   const index = name => headers.indexOf(name);
   required.forEach(name => { if (index(name) < 0) throw new Error('「'+name+'」列がありません。'); });
-  return {code:index('講師コード'),name:index('講師名'),userId:index('LINE利用者ID'),enabled:index('有効')};
+  return {
+    code:index('講師コード'),name:index('講師名'),userId:index('LINE利用者ID'),enabled:index('有効'),
+    active:index('在籍'),kana:index('よみ'),school:index('校舎')
+  };
 }
 function teacherLineContactEnabled_(value) { const v=String(value||'').trim().toLowerCase(); return !value || ['true','1','有効','yes'].indexOf(v)>=0; }
+function teacherLineContactActive_(value) { return String(value||'').trim() === '1'; }
 function teacherLineContactAccessToken_() { const p=PropertiesService.getScriptProperties(); const token=p.getProperty('LINE_CHANNEL_ACCESS_TOKEN')||p.getProperty('LINE_ACCESS_TOKEN')||p.getProperty('CHANNEL_ACCESS_TOKEN')||(typeof LINE_TOKEN!=='undefined'?LINE_TOKEN:''); if(!token)throw new Error('LINE送信用設定がありません。'); return token; }
 function teacherLineContactWriteHistory_(admin,names,message,sentCount,errors,image) { const ss=SpreadsheetApp.openById(TLC_SPREADSHEET_ID); let sheet=ss.getSheetByName(TLC_HISTORY_SHEET); if(!sheet){sheet=ss.insertSheet(TLC_HISTORY_SHEET);sheet.appendRow(['送信日時','送信者コード','送信者名','本文','対象講師','送信成功件数','結果','エラー','画像URL','画像保管期限']);sheet.setFrozenRows(1)}else{if(!sheet.getRange(1,9).getValue())sheet.getRange(1,9,1,2).setValues([['画像URL','画像保管期限']])} sheet.appendRow([new Date(),admin.code,admin.name,message,names.join('、'),sentCount,errors.length?'一部失敗':'成功',errors.join('\n'),image?image.url:'',image?image.expiresAt:'']); }
