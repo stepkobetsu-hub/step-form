@@ -1,9 +1,11 @@
 'use strict';
 (() => {
   const SEND_PROXY='https://jbiolkvegexkqjcwtyye.supabase.co/functions/v1/line-teacher-send';
+  const AUTH_PROXY='https://jbiolkvegexkqjcwtyye.supabase.co/functions/v1/line-teacher-auth';
+  let autoLoginAttempted=false;
 
-  async function sendThroughProxy(payload){
-    const response=await fetch(SEND_PROXY,{
+  async function fetchJson(url,payload){
+    const response=await fetch(url,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),
@@ -11,12 +13,99 @@
     });
     let result={};
     try{result=await response.json()}catch(_){result={}}
-    if(!response.ok||result.ok===false){
-      const error=new Error(String(result.error||result.message||'LINE送信サーバーに接続できませんでした。'));
+    if(!response.ok||result.success===false||result.ok===false||result.error){
+      const error=new Error(String(result.error||result.message||'サーバーに接続できませんでした。'));
       error.status=response.status;
       throw error;
     }
     return result;
+  }
+
+  async function proxyAuthenticate(code,password){
+    const result=await fetchJson(AUTH_PROXY,{action:'studentQrLogin',code,password});
+    if(!result.sessionToken||!['2','3','4'].includes(String(result.permissionLevel))){
+      throw new Error('利用権限を確認できませんでした。');
+    }
+    sessionToken=String(result.sessionToken);
+    try{
+      localStorage.setItem(CODE_KEY,String(code));
+      localStorage.setItem(PASSWORD_KEY,String(password));
+      localStorage.setItem(AUTH_KEY,JSON.stringify({
+        code:String(result.loginId||result.code||code),
+        name:result.name||'',
+        permissionLevel:String(result.permissionLevel||''),
+        systemPortalSessionToken:sessionToken,
+        systemPortalExpiresAt:result.expiresAt||''
+      }));
+    }catch(_){}
+    return result;
+  }
+
+  // 以後、既存コードから authenticate() が呼ばれても必ず中継APIを使う。
+  try{window.authenticate=proxyAuthenticate}catch(_){}
+
+  function installLoginProxy(){
+    const oldForm=document.getElementById('loginForm');
+    if(!oldForm||oldForm.dataset.proxyReady==='1')return;
+    const codeValue=document.getElementById('staffCode')?.value||'';
+    const passwordValue=document.getElementById('staffPassword')?.value||'';
+    const form=oldForm.cloneNode(true);
+    form.dataset.proxyReady='1';
+    oldForm.replaceWith(form);
+    const codeInput=document.getElementById('staffCode');
+    const passwordInput=document.getElementById('staffPassword');
+    const message=document.getElementById('loginMessage');
+    if(codeInput&&!codeInput.value)codeInput.value=codeValue;
+    if(passwordInput&&!passwordInput.value)passwordInput.value=passwordValue;
+
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const button=form.querySelector('button[type="submit"]');
+      if(button){button.disabled=true;button.textContent='確認しています…'}
+      if(message)message.classList.add('hidden');
+      try{
+        await proxyAuthenticate(String(codeInput?.value||'').trim(),String(passwordInput?.value||''));
+        await loadApp();
+      }catch(err){
+        if(message){
+          message.textContent=String(err?.message||err||'ログインできませんでした。');
+          message.classList.remove('hidden');
+        }
+      }finally{
+        if(button){button.disabled=false;button.textContent='開く'}
+      }
+    });
+  }
+
+  async function tryAutoLoginWhenVisible(){
+    const login=document.getElementById('login');
+    if(!login||login.classList.contains('hidden')||autoLoginAttempted)return;
+    const auth=storedAuth()||{};
+    const code=String(localStorage.getItem(CODE_KEY)||auth.code||document.getElementById('staffCode')?.value||'').trim();
+    const password=String(localStorage.getItem(PASSWORD_KEY)||document.getElementById('staffPassword')?.value||'');
+    if(!code||!password)return;
+    autoLoginAttempted=true;
+    try{
+      await proxyAuthenticate(code,password);
+      await loadApp();
+    }catch(_){
+      // 自動再認証に失敗した場合は、画面のログインフォームをそのまま使う。
+    }
+  }
+
+  installLoginProxy();
+  const loginNode=document.getElementById('login');
+  if(loginNode){
+    const observer=new MutationObserver(()=>{
+      installLoginProxy();
+      tryAutoLoginWhenVisible();
+    });
+    observer.observe(loginNode,{attributes:true,attributeFilter:['class']});
+  }
+  setTimeout(()=>{installLoginProxy();tryAutoLoginWhenVisible()},400);
+
+  async function sendThroughProxy(payload){
+    return await fetchJson(SEND_PROXY,payload);
   }
 
   function isAuthError(error){
@@ -32,13 +121,6 @@
       current.systemPortalSessionToken=token;
       if(result.permissionLevel!=null)current.permissionLevel=String(result.permissionLevel);
       localStorage.setItem(AUTH_KEY,JSON.stringify(current));
-    }catch(_){}
-  }
-
-  function saveCredentials(code,password){
-    try{
-      if(code)localStorage.setItem(CODE_KEY,String(code));
-      if(password)localStorage.setItem(PASSWORD_KEY,String(password));
     }catch(_){}
   }
 
@@ -109,16 +191,14 @@
     });
   }
 
-  function buildPayload(code,password){
+  function buildPayload(){
     const auth=storedAuth()||{};
-    const text=document.getElementById('body').value.trim();
-    const targetCodes=[...selected];
     return {
       systemPortalSessionToken:String(sessionToken||auth.systemPortalSessionToken||''),
-      code:String(code||localStorage.getItem(CODE_KEY)||auth.code||'').trim(),
-      password:String(password||localStorage.getItem(PASSWORD_KEY)||''),
-      teacherCodes:targetCodes,
-      message:text,
+      code:String(localStorage.getItem(CODE_KEY)||auth.code||'').trim(),
+      password:String(localStorage.getItem(PASSWORD_KEY)||''),
+      teacherCodes:[...selected],
+      message:document.getElementById('body').value.trim(),
       imageDataUrl:imagePayload?.dataUrl||'',
       imageName:imagePayload?.name||''
     };
@@ -130,13 +210,10 @@
       return await sendThroughProxy(payload);
     }catch(error){
       if(!isAuthError(error))throw error;
-      const auth=storedAuth()||{};
-      const codeHint=payload.code||String(auth.code||'');
-      const credentials=await requestCredentials(codeHint);
+      const credentials=await requestCredentials(payload.code);
       if(!credentials)throw new Error('送信をキャンセルしました。');
-      saveCredentials(credentials.code,credentials.password);
-      payload=buildPayload(credentials.code,credentials.password);
-      payload.systemPortalSessionToken='';
+      await proxyAuthenticate(credentials.code,credentials.password);
+      payload=buildPayload();
       return await sendThroughProxy(payload);
     }
   }
