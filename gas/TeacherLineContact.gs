@@ -39,8 +39,12 @@ function teacherLineContactRecipients_() {
   const values = sheet.getDataRange().getDisplayValues(), headers = values[0];
   const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
   const profiles = teacherLineContactProfiles_();
-  return values.slice(1).filter(row => row[col.code] && row[col.userId] && teacherLineContactEnabled_(row[col.enabled])).map(row => {
-    const code = String(row[col.code]);
+  return values.slice(1).filter(row => {
+    const code = String(row[col.code] || '').trim();
+    const profile = profiles[code];
+    return code && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && profile && profile.active;
+  }).map(row => {
+    const code = String(row[col.code] || '').trim();
     const profile = profiles[code] || {};
     return {code:code,name:String(row[col.name] || ''),kana:profile.kana || '',school:profile.school || ''};
   });
@@ -52,7 +56,11 @@ function teacherLineContactProfiles_() {
   const values = sheet.getRange(5,1,sheet.getLastRow()-4,18).getDisplayValues(), profiles = {};
   values.forEach(row => {
     const code = String(row[0] || '').trim();
-    if (code) profiles[code] = {kana:String(row[2] || '').trim(),school:String(row[17] || '').trim()};
+    if (code) profiles[code] = {
+      kana:String(row[2] || '').trim(),
+      active:String(row[3] || '').trim() === '1',
+      school:String(row[17] || '').trim()
+    };
   });
   return profiles;
 }
@@ -77,8 +85,13 @@ function teacherLineContactSend_(data, admin) {
   try {
     const sheet = SpreadsheetApp.openById(TLC_SPREADSHEET_ID).getSheetByName(TLC_LINK_SHEET), values = sheet.getDataRange().getDisplayValues(), headers = values[0];
     const col = teacherLineContactColumns_(headers,['講師コード','講師名','LINE利用者ID','有効']);
-    const targets = values.slice(1).filter(row => codes.indexOf(String(row[col.code])) >= 0 && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]));
-    if (targets.length !== codes.length) throw new Error('LINE未登録または無効な講師が含まれています。画面を再読み込みしてください。');
+    const profiles = teacherLineContactProfiles_();
+    const targets = values.slice(1).filter(row => {
+      const code = String(row[col.code] || '').trim();
+      const profile = profiles[code];
+      return codes.indexOf(code) >= 0 && row[col.userId] && teacherLineContactEnabled_(row[col.enabled]) && profile && profile.active;
+    });
+    if (targets.length !== codes.length) throw new Error('LINE未登録・無効、または在籍ではない講師が含まれています。画面を再読み込みしてください。');
     const image = imageDataUrl ? teacherLineContactStoreImage_(imageDataUrl, data.imageName, admin) : null;
     const messages = [];
     if (message) messages.push({type:'text',text:message});
