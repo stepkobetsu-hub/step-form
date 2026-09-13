@@ -32,19 +32,21 @@
 
   async function login(code,password){
     const data=await rawApi('login',{code,password,systemPortalSessionToken:''},20000);
-    const auth={code:String(data.code||code),name:data.name||'',permissionLevel:String(data.permissionLevel||''),systemPortalSessionToken:data.sessionToken,systemPortalExpiresAt:data.expiresAt||''};
+    const auth={code:String(data.code||code),name:data.name||'',permissionLevel:String(data.permissionLevel||''),systemPortalSessionToken:data.sessionToken};
     localStorage.setItem(CODE_KEY,auth.code);
     localStorage.setItem(AUTH_KEY,JSON.stringify(auth));
     try{localStorage.removeItem(LEGACY_PASSWORD_KEY)}catch(_){}
     return data;
   }
 
-  function openLogin(message='スタッフ確認をしてください。確認後は通常30日間有効です。'){
+  function openLogin(message='スタッフ確認をしてください。確認後は、ご自身でログアウトするまで有効です。'){
     $('loginCode').value=localStorage.getItem(CODE_KEY)||localStorage.getItem(LEGACY_CODE_KEY)||savedAuth()?.code||'';
     $('loginPassword').value='';
     $('loginMessage').textContent=message;
     $('loginMessage').classList.remove('hidden');
     $('loginOverlay').classList.remove('hidden');
+    const help=document.querySelector('#loginOverlay .help');
+    if(help)help.textContent='初回だけ確認します。ご自身でログアウトするまで有効です。';
     setTimeout(()=>$('loginPassword').focus(),0);
     return new Promise((resolve,reject)=>{loginResolve=resolve;loginReject=reject});
   }
@@ -67,7 +69,7 @@
     try{return await rawApi(action,extra)}catch(e){
       if(e.status!==401)throw e;
       localStorage.removeItem(AUTH_KEY);
-      await openLogin('スタッフ確認をしてください。確認後は通常30日間有効です。');
+      await openLogin('スタッフ確認情報が見つかりません。確認後は、ご自身でログアウトするまで有効です。');
       return await rawApi(action,extra);
     }
   }
@@ -101,8 +103,42 @@
     catch(e){if(force)status(e.message,'error')}
     finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
   }
-  async function loadHistory(){try{const data=await authenticated('history');const box=$('historyBody');box.replaceChildren();const rows=data.history||[];if(!rows.length){box.innerHTML='<tr><td colspan="6">送信履歴はまだありません。</td></tr>';return}for(const r of rows){const tr=document.createElement('tr');const dt=r.sent_at?new Date(r.sent_at).toLocaleString('ja-JP'):'';const targets=(r.target_names||[]).join('、');const result=r.failed_count?`${r.sent_count}件成功 / ${r.failed_count}件失敗`:`${r.sent_count}件成功`;tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td>';[dt,r.sender_name||r.sender_code,targets,r.sent_count,result,r.message||(r.image_url?'画像のみ':'')].forEach((v,i)=>tr.children[i].textContent=String(v??''));box.append(tr)}}catch(_){}
+
+  function historyContentCell(r){
+    const td=document.createElement('td');
+    const details=document.createElement('details');
+    details.className='history-details';
+    const summary=document.createElement('summary');
+    summary.textContent='送信内容を見る';
+    summary.style.cursor='pointer';summary.style.fontWeight='800';summary.style.color='#08783b';
+    details.append(summary);
+    const body=document.createElement('div');
+    body.style.whiteSpace='pre-wrap';body.style.minWidth='240px';body.style.maxWidth='440px';body.style.padding='10px';body.style.marginTop='7px';body.style.background='#f4fbf7';body.style.border='1px solid #dbe7e2';body.style.borderRadius='9px';body.style.lineHeight='1.6';
+    body.textContent=String(r.message||'').trim()||'文章なし（画像のみ送信）';
+    details.append(body);
+    if(r.image_url){
+      const img=document.createElement('img');
+      img.src=String(r.image_url);img.alt='送信した画像';img.loading='lazy';
+      img.style.display='block';img.style.maxWidth='320px';img.style.maxHeight='240px';img.style.marginTop='9px';img.style.borderRadius='9px';img.style.objectFit='contain';
+      details.append(img);
+    }
+    td.append(details);
+    return td;
   }
+
+  async function loadHistory(){
+    try{
+      const data=await authenticated('history');const box=$('historyBody');box.replaceChildren();const rows=data.history||[];
+      if(!rows.length){box.innerHTML='<tr><td colspan="6">送信履歴はまだありません。</td></tr>';return}
+      for(const r of rows){
+        const tr=document.createElement('tr');const dt=r.sent_at?new Date(r.sent_at).toLocaleString('ja-JP'):'';const targets=(r.target_names||[]).join('、');const result=r.failed_count?`${r.sent_count}件成功 / ${r.failed_count}件失敗`:`${r.sent_count}件成功`;
+        const values=[dt,r.sender_name||r.sender_code,targets,r.sent_count,result];
+        for(const v of values){const td=document.createElement('td');td.textContent=String(v??'');tr.append(td)}
+        tr.append(historyContentCell(r));box.append(tr);
+      }
+    }catch(_){}
+  }
+
   async function checkHealth(){
     $('setupNotice').classList.remove('hidden');
     try{const data=await authenticated('health');$('setupNotice').classList.toggle('hidden',!!data.configured);return !!data.configured}
@@ -150,6 +186,7 @@
   $('logoutBtn').onclick=()=>{const oldToken=token();if(oldToken)rawApi('logout').catch(()=>{});localStorage.removeItem(AUTH_KEY);location.reload()};
 
   async function init(){
+    const help=document.querySelector('#loginOverlay .help');if(help)help.textContent='初回だけ確認します。ご自身でログアウトするまで有効です。';
     $('body').value=localStorage.getItem(DRAFT_KEY)||'';updateBody();$('setupNotice').classList.remove('hidden');
     const cache=cachedRoster();if(cache.length)setTeachers(cache);$('app').classList.remove('hidden');
     await ensureSession();
