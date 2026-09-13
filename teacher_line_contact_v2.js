@@ -13,10 +13,17 @@
   function cachedRoster(){try{const x=JSON.parse(localStorage.getItem(ROSTER_CACHE)||'null');return Array.isArray(x?.teachers)?x.teachers:[]}catch{return []}}
 
   async function rawApi(action,extra={}){
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,systemPortalSessionToken:token(),...extra}),cache:'no-store'});
-    let data={};try{data=await r.json()}catch(_){data={}}
-    if(!r.ok||data.ok===false){const e=new Error(String(data.error||'処理できませんでした。'));e.status=r.status;e.code=data.code||'';throw e}
-    return data;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),20000);
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,systemPortalSessionToken:token(),...extra}),cache:'no-store',signal:controller.signal});
+      let data={};try{data=await r.json()}catch(_){data={}}
+      if(!r.ok||data.ok===false){const e=new Error(String(data.error||'処理できませんでした。'));e.status=r.status;e.code=data.code||'';throw e}
+      return data;
+    }catch(e){
+      if(e?.name==='AbortError')throw new Error('20秒以内に処理が完了しませんでした。通信状態を確認して、もう一度お試しください。');
+      throw e;
+    }finally{clearTimeout(timer)}
   }
   async function login(code,password){
     const data=await rawApi('login',{code,password,systemPortalSessionToken:''});
@@ -77,7 +84,7 @@
   }
   async function loadHistory(){try{const data=await authenticated('history');const box=$('historyBody');box.replaceChildren();const rows=data.history||[];if(!rows.length){box.innerHTML='<tr><td colspan="6">送信履歴はまだありません。</td></tr>';return}for(const r of rows){const tr=document.createElement('tr');const dt=r.sent_at?new Date(r.sent_at).toLocaleString('ja-JP'):'';const targets=(r.target_names||[]).join('、');const result=r.failed_count?`${r.sent_count}件成功 / ${r.failed_count}件失敗`:`${r.sent_count}件成功`;tr.innerHTML='<td></td><td></td><td></td><td></td><td></td><td></td>';[dt,r.sender_name||r.sender_code,targets,r.sent_count,result,r.message||(r.image_url?'画像のみ':'')].forEach((v,i)=>tr.children[i].textContent=String(v??''));box.append(tr)}}catch(_){}
   }
-  async function checkHealth(){try{const data=await authenticated('health');$('setupNotice').classList.toggle('hidden',!!data.configured);return !!data.configured}catch{return false}}
+  async function checkHealth(){try{const data=await authenticated('health');$('setupNotice').classList.toggle('hidden',!!data.configured);return !!data.configured}catch{$('setupNotice').classList.remove('hidden');return false}}
 
   function updateBody(){const text=$('body').value;$('chars').textContent=text.length+' / 2000文字';$('preview').textContent=text||(imagePayload?'文章なし（画像のみ送信）':'ここに送信内容が表示されます。');$('previewImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('previewImg').src=imagePayload.dataUrl;renderSelected()}
   function bytes(url){const s=String(url).split(',')[1]||'';return Math.floor(s.length*3/4)}
@@ -91,7 +98,16 @@
   function clearImage(){imagePayload=null;$('imageInput').value='';$('imageCard').classList.add('hidden');$('previewImgWrap').classList.add('hidden');updateBody()}
 
   function openSetup(){ $('setupToken').value='';$('setupError').classList.add('hidden');$('setupOverlay').classList.remove('hidden');setTimeout(()=>$('setupToken').focus(),0)}
-  async function saveToken(){const t=$('setupToken').value.trim();if(!t)return;$('setupSave').disabled=true;$('setupSave').textContent='接続確認中…';try{const d=await authenticated('setLineToken',{token:t});$('setupOverlay').classList.add('hidden');$('setupNotice').classList.add('hidden');status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true}catch(e){$('setupError').textContent=e.message;$('setupError').classList.remove('hidden');return false}finally{$('setupSave').disabled=false;$('setupSave').textContent='保存して接続確認'}}
+  async function saveToken(){
+    const t=$('setupToken').value.trim();if(!t)return;
+    $('setupSave').disabled=true;$('setupSave').textContent='接続確認中…';$('setupError').classList.add('hidden');
+    try{
+      const d=await authenticated('setLineToken',{token:t});
+      $('setupOverlay').classList.add('hidden');$('setupNotice').classList.add('hidden');$('setupToken').value='';
+      status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true;
+    }catch(e){$('setupError').textContent=e.message;$('setupError').classList.remove('hidden');return false}
+    finally{$('setupSave').disabled=false;$('setupSave').textContent='保存して接続確認'}
+  }
 
   async function doSend(){
     if(busy)return;busy=true;$('send').disabled=true;$('send').textContent='送信しています…';
@@ -109,6 +125,7 @@
   $('logoutBtn').onclick=()=>{localStorage.removeItem(AUTH_KEY);localStorage.removeItem(PASSWORD_KEY);location.reload()};
 
   async function init(){
+    $('setupNotice').classList.remove('hidden');
     $('body').value=localStorage.getItem(DRAFT_KEY)||'';updateBody();const cache=cachedRoster();if(cache.length){setTeachers(cache);$('app').classList.remove('hidden')}
     const auth=savedAuth();const code=localStorage.getItem(CODE_KEY)||auth?.code||'',pw=localStorage.getItem(PASSWORD_KEY)||'';
     if(!auth?.systemPortalSessionToken&&code&&pw){try{await login(code,pw)}catch(_){}}
