@@ -18,7 +18,7 @@ main{max-width:1120px;margin:20px auto;padding:0 16px 48px}.notice{padding:12px 
 <header><div class="head"><div class="mark">LINE</div><div class="title"><h1>LINE講師連絡システム</h1><p>個別指導STEP・登録済み講師への業務連絡</p></div><nav class="nav"><a class="step" href="https://stepkobetsu-hub.github.io/step-message-center/">STEP配信システムへ</a><a class="line" href="https://chat.line.biz/U4ec286ef731d320a710bfa6cc796b713" target="_blank" rel="noopener">公式LINEへ</a><a class="home" href="https://stepkobetsu-hub.github.io/step-workspace/">業務ホームへ</a><button id="logoutBtn" class="logout" type="button">ログアウト</button></nav></div></header>
 <main>
 <div id="status" class="notice hidden" role="status"></div>
-<div id="setupNotice" class="notice setup-notice hidden"><span>新しい送信基盤の初回設定だけ必要です。設定後は再入力不要です。</span><button id="setupButton" class="blue" type="button">LINE送信を初回設定</button></div>
+<div id="setupNotice" class="notice setup-notice"><span>新しい送信基盤の初回設定だけ必要です。設定後は再入力不要です。</span><button id="setupButton" class="blue" type="button">LINE送信を初回設定</button></div>
 <div id="app" class="hidden">
 <div class="layout">
 <section class="panel"><h2>1. 送信する講師を選ぶ</h2><div class="filters"><input id="search" type="search" placeholder="番号・氏名・よみ（かな／ローマ字）で検索"><select id="school"><option value="">全教室</option><option value="神領">神領校</option><option value="大手">大手町校</option></select></div><div class="tools"><button id="forceRefresh" class="blue" type="button">講師情報を強制更新</button><button id="selectVisible" class="secondary" type="button">表示中を全員選択</button><button id="clearSelection" class="secondary" type="button">選択解除</button><span id="count" class="count">0人選択</span></div><div class="selected-box"><div class="selected-head"><strong>現在選択中の講師</strong><span id="selectedCount">0人</span></div><div id="selectedList" class="chips"><span class="help">まだ選択されていません。</span></div></div><div id="teacherList" class="teacher-list"></div></section>
@@ -27,11 +27,8 @@ main{max-width:1120px;margin:20px auto;padding:0 16px 48px}.notice{padding:12px 
 <section class="panel"><h2>最近の送信履歴</h2><div style="overflow:auto"><table class="history"><thead><tr><th>送信日時</th><th>送信者</th><th>対象</th><th>件数</th><th>結果</th><th>送信内容</th></tr></thead><tbody id="historyBody"><tr><td colspan="6">読み込み中…</td></tr></tbody></table></div></section>
 </div>
 </main>
-
 <div id="loginOverlay" class="overlay hidden"><div class="modal login-modal"><h2>スタッフ確認</h2><p class="help">初回またはログイン期限切れのときだけ確認します。</p><form id="loginForm"><label for="loginCode">講師番号</label><input id="loginCode" inputmode="numeric" autocomplete="username"><label for="loginPassword">パスワード</label><input id="loginPassword" type="password" autocomplete="current-password"><div id="loginMessage" class="modal-error hidden"></div><button id="loginSubmit" class="primary" type="submit" style="width:100%;margin-top:16px">開く</button></form></div></div>
-
 <div id="confirm" class="overlay hidden"><div class="modal confirm-modal"><h2>この内容でLINEを送信しますか？</h2><p id="confirmTargets"></p><div id="confirmBody" class="preview"></div><div id="confirmImgWrap" class="hidden"><img id="confirmImg" class="confirm-img" alt="送信画像"></div><p class="help">実際にLINE APIから成功応答が返った場合だけ「送信しました」と表示します。</p><div class="actions"><button id="cancelSend" class="secondary" type="button">戻る</button><button id="send" class="danger" type="button">確認して送信する</button></div></div></div>
-
 <div id="setupOverlay" class="overlay hidden"><div class="modal"><h2>LINE送信の初回設定</h2><div class="setup-help">既存の「個別指導STEP」Messaging APIチャネルの<strong>チャネルアクセストークン（長期）</strong>を1回だけ登録します。トークンはGitHubやブラウザには保存せず、新しい送信サーバーだけに保存します。<br><a href="https://developers.line.biz/console/" target="_blank" rel="noopener">LINE Developersを開く</a></div><label for="setupToken">チャネルアクセストークン</label><input id="setupToken" type="password" autocomplete="off" placeholder="ここに貼り付け"><div id="setupError" class="modal-error hidden"></div><div class="actions"><button id="setupCancel" class="secondary" type="button">キャンセル</button><button id="setupSave" class="primary" type="button">保存して接続確認</button></div></div></div>
-<script src="teacher_line_contact_v2.js?v=20260913-rebuild-v1"></script>
+<script src="teacher_line_contact_v2.js?v=20260913-rebuild-v2"></script>
 </body></html>
