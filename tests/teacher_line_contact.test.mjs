@@ -26,6 +26,7 @@ assert.equal(sandbox.matchesForTest('yamamoto',{code:'7058',name:'山本 花子'
 assert.equal(sandbox.matchesForTest('sato',{code:'7002',name:'大野 智子',kana:'オオノ トモコ'}),false);
 assert.match(html,/確認して送信する/);
 assert.match(js,/teacherLineAdminRecipients/);\nassert.match(js,/APP_CACHE_KEY/);\nassert.match(js,/authAllowsCachedApp/);
+assert.match(js,/画面を開きました。講師一覧を読み込んでいます/);
 assert.match(js,/teacherLineAdminSend/);
 assert.match(js,/stepStaffAppAuth/);
 assert.match(gas,/verifySystemPortal/);
