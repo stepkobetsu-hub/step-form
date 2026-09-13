@@ -1,16 +1,33 @@
 'use strict';
 (() => {
-  async function refreshStaffSession(){
-    const auth=storedAuth();
-    const code=String(localStorage.getItem(CODE_KEY)||auth?.code||'').trim();
-    const password=String(localStorage.getItem(PASSWORD_KEY)||'');
-    if(!code||!password) throw new Error('スタッフ認証情報がありません。いったんログアウトしてログインし直してください。');
-    await authenticate(code,password);
-    return sessionToken;
+  const SEND_PROXY='https://jbiolkvegexkqjcwtyye.supabase.co/functions/v1/line-teacher-send';
+
+  async function sendThroughProxy(payload){
+    const response=await fetch(SEND_PROXY,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+      cache:'no-store'
+    });
+    let result={};
+    try{result=await response.json()}catch(_){result={}}
+    if(!response.ok||result.ok===false){
+      throw new Error(String(result.error||result.message||'LINE送信サーバーに接続できませんでした。'));
+    }
+    return result;
   }
 
-  // 起動速度には影響させず、画面表示後に裏でセッションだけ更新する。
-  setTimeout(()=>{refreshStaffSession().catch(()=>{})},300);
+  function persistRefreshedSession(result){
+    const token=String(result?.sessionToken||'').trim();
+    if(!token)return;
+    sessionToken=token;
+    try{
+      const current=storedAuth()||{};
+      current.systemPortalSessionToken=token;
+      if(result.permissionLevel!=null)current.permissionLevel=String(result.permissionLevel);
+      localStorage.setItem(AUTH_KEY,JSON.stringify(current));
+    }catch(_){}
+  }
 
   const oldSend=document.getElementById('send');
   if(!oldSend)return;
@@ -21,7 +38,7 @@
     if(busy)return;
     busy=true;
     send.disabled=true;
-    send.textContent='認証を確認しています…';
+    send.textContent='送信しています…';
     try{
       const text=document.getElementById('body').value.trim();
       const hadImage=!!imagePayload;
@@ -29,38 +46,35 @@
       if(!targetCodes.length)throw new Error('送信する講師を選んでください。');
       if(!text&&!hadImage)throw new Error('連絡内容または画像を入力してください。');
 
-      await refreshStaffSession();
-      send.textContent='送信しています…';
+      const auth=storedAuth()||{};
+      const code=String(localStorage.getItem(CODE_KEY)||auth.code||'').trim();
+      const password=String(localStorage.getItem(PASSWORD_KEY)||'');
 
-      const result=await api('teacherLineAdminSend',{
+      const result=await sendThroughProxy({
+        systemPortalSessionToken:String(sessionToken||auth.systemPortalSessionToken||''),
+        code,
+        password,
         teacherCodes:targetCodes,
         message:text,
         imageDataUrl:imagePayload?.dataUrl||'',
         imageName:imagePayload?.name||''
       });
 
-      document.getElementById('confirm').classList.add('hidden');
-      const sentType=hadImage?(text?'文章・画像':'画像'):'文章';
+      persistRefreshedSession(result);
+
       const sentCount=Number(result?.sentCount||0);
       const failedCount=Number(result?.failedCount||0);
-      if(sentCount<1)throw new Error(result?.message||'LINE送信を確認できませんでした。');
+      if(sentCount<1)throw new Error(String(result?.message||result?.error||'LINE送信を確認できませんでした。'));
 
+      document.getElementById('confirm').classList.add('hidden');
+      const sentType=hadImage?(text?'文章・画像':'画像'):'文章';
       notice(sentCount+'人へ'+sentType+'を送信しました。'+(failedCount?' '+failedCount+'人は送信できませんでした。':''),failedCount?'error':'ok');
       selected.clear();
       clearImage();
       renderTeachers();
-
-      try{
-        const history=await api('teacherLineAdminHistory');
-        renderHistory(history.history||[]);
-      }catch(_){}
     }catch(err){
       document.getElementById('confirm').classList.add('hidden');
-      const message=String(err?.message||err||'送信できませんでした。');
-      notice(message,'error');
-      if(/スタッフ確認|有効期限|認証情報/.test(message)){
-        try{localStorage.removeItem(AUTH_KEY)}catch(_){}
-      }
+      notice(String(err?.message||err||'送信できませんでした。'),'error');
     }finally{
       busy=false;
       send.disabled=false;
