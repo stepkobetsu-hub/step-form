@@ -10,6 +10,7 @@
 
       details.dataset.compactReady='1';
       details.classList.add('history-compact');
+      if(details.parentElement) details.parentElement.classList.add('history-content-cell');
       const raw=(body.textContent||'').trim() || (img ? '画像のみ送信' : '送信内容なし');
       const oneLine=raw.replace(/\s+/g,' ');
 
