@@ -1,0 +1,19 @@
+name: Probe teacher LINE API
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-teacher-line-api.yml'
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check web app GET
+        run: |
+          code=$(curl -sS -L -o /dev/null -w '%{http_code}' 'https://script.google.com/macros/s/AKfycbz6_kf6oXCUycashVMMQ9-hrA73CtopL7xwPsm0DYkE5MxXJyxJrhkdnghIS70_KC641w/exec?action=teacherLineLinkStatus&code=7001&callback=cb')
+          echo "GET_STATUS=$code"
+          test "$code" = "200"
+      - name: Check web app POST without sending
+        run: |
+          code=$(curl -sS -L -o /dev/null -w '%{http_code}' -H 'Content-Type: text/plain;charset=utf-8' --data '{"action":"teacherLineLinkStatus","code":"7001"}' 'https://script.google.com/macros/s/AKfycbz6_kf6oXCUycashVMMQ9-hrA73CtopL7xwPsm0DYkE5MxXJyxJrhkdnghIS70_KC641w/exec')
+          echo "POST_STATUS=$code"
+          test "$code" = "200"
