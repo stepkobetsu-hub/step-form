@@ -4,13 +4,58 @@ const STAFF_AUTH='https://script.google.com/macros/s/AKfycbypkUc0MqZ07E7pZRglNPe
 const AUTH_KEY='stepStaffAppAuth',CODE_KEY='stepStaffAppCode',PASSWORD_KEY='stepStaffAppPassword',DRAFT_KEY='stepTeacherLineContactDraftV1';
 const $=id=>document.getElementById(id);
 let teachers=[],selected=new Set(),sessionToken='',busy=false,imagePayload=null;
+const FALLBACK_TEACHERS=[
+  {code:'7001',name:'加瀬俊介',kana:'カセシュンスケ',school:'神領・大手'},
+  {code:'7002',name:'大野智子',kana:'オオノトモコ',school:'神領・大手'},
+  {code:'7028',name:'伊東里紗',kana:'いとうりさ',school:'神領'},
+  {code:'7040',name:'土屋大輔',kana:'つちやだいすけ',school:'大手'},
+  {code:'7043',name:'酒巻裕亮',kana:'さかまきゆうすけ',school:'大手'},
+  {code:'7045',name:'田口瑠南',kana:'たぐちるな',school:'神領・大手'},
+  {code:'7048',name:'林房子',kana:'はやしふさこ',school:'大手'},
+  {code:'7049',name:'松久稜平',kana:'まつひさりょうへい',school:'神領・大手'},
+  {code:'7052',name:'長谷川瑠海',kana:'はせがわるみ',school:'大手'},
+  {code:'7058',name:'山本悠真',kana:'やまもとゆうま',school:'神領'},
+  {code:'7059',name:'島岡伶央那',kana:'しまおかれおな',school:'神領'},
+  {code:'7061',name:'林　周悟',kana:'はやししゅうご',school:'神領'},
+  {code:'7062',name:'重松　澪',kana:'しげまつみお',school:'神領'},
+  {code:'7065',name:'柴田凌吾',kana:'しばたりょうご',school:'神領'},
+  {code:'7067',name:'小川真矢',kana:'おがわまや',school:'大手'},
+  {code:'7074',name:'早川瑛康',kana:'はやかわえいこう',school:'大手'},
+  {code:'7075',name:'白石亜美',kana:'しらいしあみ',school:'神領・大手'},
+  {code:'7082',name:'村田真博',kana:'ムラタマヒロ',school:'大手'},
+  {code:'7083',name:'加藤大誠',kana:'カトウタイセイ',school:'神領・大手'},
+  {code:'7086',name:'勝田裕己',kana:'カツダヒロキ',school:'神領'},
+  {code:'7087',name:'佐野夢空',kana:'サノユウア',school:'神領'},
+  {code:'7088',name:'作取夢芽子',kana:'サクトリユメコ',school:'神領'},
+  {code:'7089',name:'石黒花笑',kana:'イシグロハナエ',school:'神領'},
+  {code:'7090',name:'西木祐衣',kana:'ニシキユイ',school:'大手'},
+  {code:'7091',name:'三浦寛南',kana:'ミウラカンナ',school:'大手'}
+];
 async function post(url,data){const response=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data),redirect:'follow',cache:'no-store'});if(!response.ok)throw new Error('サーバーに接続できませんでした。');const result=await response.json();if(result.error||result.success===false||result.ok===false)throw new Error(result.error||result.message||'処理できませんでした。');return result}
 function storedAuth(){try{return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')}catch{return null}}
 function notice(text,type='info'){const el=$('message');el.textContent=text;el.className='notice '+type;el.classList.toggle('hidden',!text)}
 async function authenticate(code,password){const result=await post(STAFF_AUTH,{action:'studentQrLogin',code,password});if(!result.sessionToken||!['2','3','4'].includes(String(result.permissionLevel)))throw new Error('利用権限を確認できませんでした。');sessionToken=result.sessionToken;localStorage.setItem(CODE_KEY,String(code));localStorage.setItem(PASSWORD_KEY,String(password));localStorage.setItem(AUTH_KEY,JSON.stringify({code:String(result.loginId||result.code||code),name:result.name||'',permissionLevel:result.permissionLevel,systemPortalSessionToken:sessionToken,systemPortalExpiresAt:result.expiresAt||''}));return result}
 async function api(action,extra={}){return post(CONTACT_API,{action,systemPortalSessionToken:sessionToken,...extra})}
 async function init(){const draft=localStorage.getItem(DRAFT_KEY)||'';$('body').value=draft;updateMessage();const auth=storedAuth();const code=localStorage.getItem(CODE_KEY)||auth?.code||'';const password=localStorage.getItem(PASSWORD_KEY)||'';$('staffCode').value=code;$('staffPassword').value=password;try{if(auth?.systemPortalSessionToken){sessionToken=auth.systemPortalSessionToken;await loadApp();return}if(code&&password){await authenticate(code,password);await loadApp();return}}catch(e){sessionToken=''}$('loading').classList.add('hidden');$('login').classList.remove('hidden')}
-async function loadApp(){const [recipientResult,historyResult]=await Promise.all([api('teacherLineAdminRecipients'),api('teacherLineAdminHistory')]);teachers=Array.isArray(recipientResult.teachers)?recipientResult.teachers:[];renderTeachers();renderHistory(historyResult.history||[]);$('loading').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.remove('hidden')}
+function showApp(){renderTeachers();$('loading').classList.add('hidden');$('login').classList.add('hidden');$('app').classList.remove('hidden')}
+async function loadApp(){
+  teachers=FALLBACK_TEACHERS.map(t=>({...t}));
+  renderHistory([]);
+  showApp();
+  notice(`登録済み講師${teachers.length}人を表示しました。最新情報を確認しています…`);
+  api('teacherLineAdminRecipients').then(recipientResult=>{
+    const latest=Array.isArray(recipientResult.teachers)?recipientResult.teachers:[];
+    if(latest.length){teachers=latest;renderTeachers();notice('');return}
+    notice('最新の講師一覧が0件だったため、登録済み講師一覧を表示しています。','error');
+  }).catch(err=>{
+    const message=String(err?.message||'');
+    if(/スタッフ確認|有効期限|利用権限/.test(message)){
+      sessionToken='';$('app').classList.add('hidden');$('login').classList.remove('hidden');$('loginMessage').textContent=message||'スタッフ確認が必要です。';$('loginMessage').classList.remove('hidden');return;
+    }
+    notice('最新情報の取得に時間がかかっているため、登録済み講師一覧を表示しています。','info');
+  });
+  api('teacherLineAdminHistory').then(historyResult=>renderHistory(historyResult.history||[])).catch(()=>{});
+}
 function normalizeSearchText(value){return String(value||'').normalize('NFKC').replace(/\s/g,'').toLowerCase()}
 function katakanaToHiragana(value){return normalizeSearchText(value).replace(/[ァ-ヶ]/g,char=>String.fromCharCode(char.charCodeAt(0)-0x60))}
 function kanaToRomaji(value){
