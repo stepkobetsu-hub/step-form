@@ -140,9 +140,8 @@
   }
 
   async function checkHealth(){
-    $('setupNotice').classList.remove('hidden');
-    try{const data=await authenticated('health');$('setupNotice').classList.toggle('hidden',!!data.configured);return !!data.configured}
-    catch(e){status(e.message,'error');$('setupNotice').classList.remove('hidden');return false}
+    try{const data=await authenticated('health');const configured=!!data.configured;$('settingsButton').classList.toggle('needs-setup',!configured);$('settingsButton').title=configured?'LINE送信設定を確認・変更':'LINE送信の設定が必要です';return configured}
+    catch(e){status(e.message,'error');return false}
   }
 
   function updateBody(){const text=$('body').value;$('chars').textContent=text.length+' / 2000文字';$('preview').textContent=text||(imagePayload?'文章なし（画像のみ送信）':'ここに送信内容が表示されます。');$('previewImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('previewImg').src=imagePayload.dataUrl;renderSelected()}
@@ -156,11 +155,11 @@
   }
   function clearImage(){imagePayload=null;$('imageInput').value='';$('imageCard').classList.add('hidden');$('previewImgWrap').classList.add('hidden');updateBody()}
 
-  function openSetup(){$('setupToken').value='';$('setupError').classList.add('hidden');$('setupOverlay').classList.remove('hidden');setTimeout(()=>$('setupToken').focus(),0)}
+  function openSetup(){$('setupToken').value='';$('setupError').classList.add('hidden');$('setupOverlay').hidden=false;setTimeout(()=>$('setupToken').focus(),0)}
   async function saveToken(){
     const t=$('setupToken').value.trim();if(!t)return;
     $('setupSave').disabled=true;$('setupSave').textContent='接続確認中…';$('setupError').classList.add('hidden');
-    try{const d=await authenticated('setLineToken',{token:t});$('setupOverlay').classList.add('hidden');$('setupNotice').classList.add('hidden');$('setupToken').value='';status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true}
+    try{const d=await authenticated('setLineToken',{token:t});$('setupOverlay').hidden=true;$('settingsButton').classList.remove('needs-setup');$('settingsButton').title='LINE送信設定を確認・変更';$('setupToken').value='';status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true}
     catch(e){$('setupError').textContent=e.message;$('setupError').classList.remove('hidden');return false}
     finally{$('setupSave').disabled=false;$('setupSave').textContent='保存して接続確認'}
   }
@@ -182,12 +181,12 @@
   $('search').addEventListener('input',render);$('school').addEventListener('change',render);$('forceRefresh').onclick=()=>refreshRoster(true);$('selectVisible').onclick=()=>{visible().forEach(t=>selected.add(t.code));render()};$('clearSelection').onclick=()=>{selected.clear();render()};
   $('body').addEventListener('input',updateBody);$('saveDraft').onclick=()=>{localStorage.setItem(DRAFT_KEY,$('body').value);status('この端末に文章を保存しました。','ok')};$('imageInput').addEventListener('change',async e=>{try{await prepareImage(e.target.files?.[0])}catch(err){clearImage();status(err.message,'error')}});$('removeImage').onclick=clearImage;
   $('openConfirm').onclick=()=>{const names=teachers.filter(t=>selected.has(t.code)).map(t=>t.name+'先生');$('confirmTargets').textContent='送信先：'+names.join('、')+'（'+names.length+'人）';$('confirmBody').textContent=$('body').value.trim()||'文章なし（画像のみ送信）';$('confirmImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('confirmImg').src=imagePayload.dataUrl;$('confirm').classList.remove('hidden')};$('cancelSend').onclick=()=>$('confirm').classList.add('hidden');$('send').onclick=doSend;
-  $('setupButton').onclick=openSetup;$('setupCancel').onclick=()=>$('setupOverlay').classList.add('hidden');$('setupSave').onclick=saveToken;
+  $('settingsButton').onclick=openSetup;$('setupCancel').onclick=()=>$('setupOverlay').hidden=true;$('setupSave').onclick=saveToken;
   $('logoutBtn').onclick=()=>{const oldToken=token();if(oldToken)rawApi('logout').catch(()=>{});localStorage.removeItem(AUTH_KEY);location.reload()};
 
   async function init(){
     const help=document.querySelector('#loginOverlay .help');if(help)help.textContent='初回だけ確認します。ご自身でログアウトするまで有効です。';
-    $('body').value=localStorage.getItem(DRAFT_KEY)||'';updateBody();$('setupNotice').classList.remove('hidden');
+    $('body').value=localStorage.getItem(DRAFT_KEY)||'';updateBody();
     const cache=cachedRoster();if(cache.length)setTeachers(cache);$('app').classList.remove('hidden');
     await ensureSession();
     await refreshRoster(false);
