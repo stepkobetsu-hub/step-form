@@ -93,7 +93,7 @@
     $('count').textContent=selected.size+'人選択';$('selectedCount').textContent=selected.size+'人';const box=$('selectedList');box.replaceChildren();
     const chosen=teachers.filter(t=>selected.has(t.code));if(!chosen.length)box.innerHTML='<span class="help">まだ選択されていません。</span>';
     for(const t of chosen){const chip=document.createElement('span');chip.className='chip';chip.innerHTML='<strong></strong><button type="button">×</button>';chip.querySelector('strong').textContent=t.name+'先生';chip.querySelector('button').onclick=()=>{selected.delete(t.code);render()};box.append(chip)}
-    $('openConfirm').disabled=!selected.size||(!$('body').value.trim()&&!imagePayload);
+    $('openConfirm').disabled=!selected.size||(!$('body').value.trim()&&!imagePayload&&!$('callRequest').checked);
   }
   function setTeachers(list){teachers=(list||[]).map(t=>({code:String(t.code),name:String(t.name||''),kana:String(t.kana||''),school:String(t.school||'')}));for(const c of [...selected])if(!teachers.some(t=>t.code===c))selected.delete(c);saveRoster(teachers);render()}
 
@@ -114,7 +114,7 @@
     details.append(summary);
     const body=document.createElement('div');
     body.style.whiteSpace='pre-wrap';body.style.minWidth='240px';body.style.maxWidth='440px';body.style.padding='10px';body.style.marginTop='7px';body.style.background='#f4fbf7';body.style.border='1px solid #dbe7e2';body.style.borderRadius='9px';body.style.lineHeight='1.6';
-    body.textContent=String(r.message||'').trim()||'文章なし（画像のみ送信）';
+    body.textContent=String(r.message||'').trim()||(r.result?.call_requested?'通話リクエスト（電話してください）':'文章なし（画像のみ送信）');
     details.append(body);
     if(r.image_url){
       const img=document.createElement('img');
@@ -144,7 +144,7 @@
     catch(e){status(e.message,'error');return false}
   }
 
-  function updateBody(){const text=$('body').value;$('chars').textContent=text.length+' / 2000文字';$('preview').textContent=text||(imagePayload?'文章なし（画像のみ送信）':'ここに送信内容が表示されます。');$('previewImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('previewImg').src=imagePayload.dataUrl;renderSelected()}
+  function updateBody(){const text=$('body').value,call=$('callRequest').checked;$('chars').textContent=text.length+' / 2000文字';$('preview').textContent=text||(imagePayload?'文章なし（画像のみ送信）':call?'文章なし（通話リクエストのみ送信）':'ここに送信内容が表示されます。');$('previewCall').classList.toggle('hidden',!call);$('previewImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('previewImg').src=imagePayload.dataUrl;renderSelected()}
   function bytes(url){const s=String(url).split(',')[1]||'';return Math.floor(s.length*3/4)}
   async function prepareImage(file){
     if(!file)return clearImage();if(!['image/jpeg','image/png'].includes(file.type))throw new Error('JPEGまたはPNG画像を選んでください。');
@@ -155,19 +155,19 @@
   }
   function clearImage(){imagePayload=null;$('imageInput').value='';$('imageCard').classList.add('hidden');$('previewImgWrap').classList.add('hidden');updateBody()}
 
-  function openSetup(){$('setupToken').value='';$('setupError').classList.add('hidden');$('setupOverlay').hidden=false;setTimeout(()=>$('setupToken').focus(),0)}
-  async function saveToken(){
-    const t=$('setupToken').value.trim();if(!t)return;
-    $('setupSave').disabled=true;$('setupSave').textContent='接続確認中…';$('setupError').classList.add('hidden');
-    try{const d=await authenticated('setLineToken',{token:t});$('setupOverlay').hidden=true;$('settingsButton').classList.remove('needs-setup');$('settingsButton').title='LINE送信設定を確認・変更';$('setupToken').value='';status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true}
+  async function openSetup(){$('setupToken').value='';$('setupCallUrl').value='';$('setupError').classList.add('hidden');$('setupOverlay').hidden=false;try{const d=await authenticated('settings');$('setupCallUrl').value=d.callUrl||''}catch(e){$('setupError').textContent=e.message;$('setupError').classList.remove('hidden')}setTimeout(()=>$('setupCallUrl').focus(),0)}
+  async function saveSettings(){
+    const t=$('setupToken').value.trim(),callUrl=$('setupCallUrl').value.trim();
+    $('setupSave').disabled=true;$('setupSave').textContent='保存しています…';$('setupError').classList.add('hidden');
+    try{const d=await authenticated('saveSettings',{token:t,callUrl});$('setupOverlay').hidden=true;$('settingsButton').classList.toggle('needs-setup',!d.configured);$('settingsButton').title=d.configured?'LINE送信設定を確認・変更':'LINE送信の設定が必要です';$('setupToken').value='';status(`LINE送信設定を保存しました${d.botName?'（'+d.botName+'）':''}。`,'ok');return true}
     catch(e){$('setupError').textContent=e.message;$('setupError').classList.remove('hidden');return false}
-    finally{$('setupSave').disabled=false;$('setupSave').textContent='保存して接続確認'}
+    finally{$('setupSave').disabled=false;$('setupSave').textContent='設定を保存'}
   }
 
   async function doSend(){
     if(busy)return;busy=true;$('send').disabled=true;$('send').textContent='送信しています…';
-    const payload={teacherCodes:[...selected],message:$('body').value.trim(),imageDataUrl:imagePayload?.dataUrl||'',imageName:imagePayload?.name||''};
-    try{let data;try{data=await authenticated('send',payload)}catch(e){if(e.status===428||e.code==='CONFIG_REQUIRED'){openSetup();throw new Error('初回だけLINE送信設定を行ってください。設定後、もう一度送信してください。')}throw e}$('confirm').classList.add('hidden');status(`${data.sentCount}人へLINEを送信しました。${data.failedCount?' '+data.failedCount+'人は送信できませんでした。':''}`,data.failedCount?'error':'ok');selected.clear();clearImage();render();await loadHistory()}
+    const payload={teacherCodes:[...selected],message:$('body').value.trim(),imageDataUrl:imagePayload?.dataUrl||'',imageName:imagePayload?.name||'',includeCallRequest:$('callRequest').checked};
+    try{let data;try{data=await authenticated('send',payload)}catch(e){if(e.status===428||e.code==='CONFIG_REQUIRED'||e.code==='CALL_URL_REQUIRED'){openSetup();throw new Error(e.code==='CALL_URL_REQUIRED'?'設定からLINEコールURLを登録して、もう一度送信してください。':'初回だけLINE送信設定を行ってください。設定後、もう一度送信してください。')}throw e}$('confirm').classList.add('hidden');status(`${data.sentCount}人へLINEを送信しました。${data.failedCount?' '+data.failedCount+'人は送信できませんでした。':''}`,data.failedCount?'error':'ok');selected.clear();$('callRequest').checked=false;clearImage();render();await loadHistory()}
     catch(e){$('confirm').classList.add('hidden');status(e.message,'error')}
     finally{busy=false;$('send').disabled=false;$('send').textContent='確認して送信する'}
   }
@@ -179,9 +179,9 @@
     finally{b.disabled=false;b.textContent='開く'}
   });
   $('search').addEventListener('input',render);$('school').addEventListener('change',render);$('forceRefresh').onclick=()=>refreshRoster(true);$('selectVisible').onclick=()=>{visible().forEach(t=>selected.add(t.code));render()};$('clearSelection').onclick=()=>{selected.clear();render()};
-  $('body').addEventListener('input',updateBody);$('saveDraft').onclick=()=>{localStorage.setItem(DRAFT_KEY,$('body').value);status('この端末に文章を保存しました。','ok')};$('imageInput').addEventListener('change',async e=>{try{await prepareImage(e.target.files?.[0])}catch(err){clearImage();status(err.message,'error')}});$('removeImage').onclick=clearImage;
-  $('openConfirm').onclick=()=>{const names=teachers.filter(t=>selected.has(t.code)).map(t=>t.name+'先生');$('confirmTargets').textContent='送信先：'+names.join('、')+'（'+names.length+'人）';$('confirmBody').textContent=$('body').value.trim()||'文章なし（画像のみ送信）';$('confirmImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('confirmImg').src=imagePayload.dataUrl;$('confirm').classList.remove('hidden')};$('cancelSend').onclick=()=>$('confirm').classList.add('hidden');$('send').onclick=doSend;
-  $('settingsButton').onclick=openSetup;$('setupCancel').onclick=()=>$('setupOverlay').hidden=true;$('setupSave').onclick=saveToken;
+  $('body').addEventListener('input',updateBody);$('callRequest').addEventListener('change',updateBody);$('saveDraft').onclick=()=>{localStorage.setItem(DRAFT_KEY,$('body').value);status('この端末に文章を保存しました。','ok')};$('imageInput').addEventListener('change',async e=>{try{await prepareImage(e.target.files?.[0])}catch(err){clearImage();status(err.message,'error')}});$('removeImage').onclick=clearImage;
+  $('openConfirm').onclick=()=>{const call=$('callRequest').checked,names=teachers.filter(t=>selected.has(t.code)).map(t=>t.name+'先生');$('confirmTargets').textContent='送信先：'+names.join('、')+'（'+names.length+'人）';$('confirmBody').textContent=$('body').value.trim()||(imagePayload?'文章なし（画像のみ送信）':call?'文章なし（通話リクエストのみ送信）':'文章なし');$('confirmCall').classList.toggle('hidden',!call);$('confirmImgWrap').classList.toggle('hidden',!imagePayload);if(imagePayload)$('confirmImg').src=imagePayload.dataUrl;$('confirm').classList.remove('hidden')};$('cancelSend').onclick=()=>$('confirm').classList.add('hidden');$('send').onclick=doSend;
+  $('settingsButton').onclick=openSetup;$('setupCancel').onclick=()=>$('setupOverlay').hidden=true;$('setupSave').onclick=saveSettings;
   $('logoutBtn').onclick=()=>{const oldToken=token();if(oldToken)rawApi('logout').catch(()=>{});localStorage.removeItem(AUTH_KEY);location.reload()};
 
   async function init(){
