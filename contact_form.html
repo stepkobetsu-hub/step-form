@@ -369,8 +369,12 @@ body.success-mode .notice-line{
         </div>
       </div>
       <div class="field">
-        <label class="flabel">住所<span style="color:var(--pink);margin-left:3px">*</span></label>
-        <textarea id="addr" rows="2" placeholder="愛知県春日井市〇〇町1-2-3　〇〇マンション101号"></textarea>
+        <label class="flabel" for="addr">住所（県/市郡区/町・村）<span style="color:var(--pink);margin-left:3px">*</span></label>
+        <input type="text" id="addr" autocomplete="address-line1" placeholder="愛知県春日井市〇〇町">
+      </div>
+      <div class="field">
+        <label class="flabel" for="addr2">住所（丁目・番地/マンション名・号室）<span style="color:var(--pink);margin-left:3px">*</span></label>
+        <input type="text" id="addr2" autocomplete="address-line2" placeholder="1-2-3　〇〇マンション101号">
       </div>
       <div class="field">
         <label class="flabel">メールアドレス<span style="color:var(--pink);margin-left:3px">*</span></label>
@@ -458,7 +462,7 @@ function prog(){
   document.getElementById('prog').style.width=pct+'%';
   document.getElementById('prog-label').textContent='入力状況：'+pct+'%'+(pct===100?' ✅':'');
 }
-['school','name','furigana','tel','zip','email','email2','addr','message'].forEach(function(id){
+['school','name','furigana','tel','zip','email','email2','addr','addr2','message'].forEach(function(id){
   var el=document.getElementById(id);
   if(el)el.addEventListener('input',prog);
 });
@@ -483,7 +487,8 @@ async function lookupZip(){
       document.getElementById('addr').value=a.address1+a.address2+(a.address3||'');
         document.getElementById('zip-msg').textContent = '住所を自動入力しました';
         document.getElementById('zip-msg').className = 'zip-msg ok';
-      msg.className='zip-msg ok';msg.textContent='✓ 住所を自動入力しました！';prog();
+      msg.className='zip-msg ok';msg.textContent='✓ 住所を自動入力しました！';
+      document.getElementById('addr2').focus();prog();
     }else{msg.className='zip-msg ng';msg.textContent='住所が見つかりませんでした';}
   }catch(e){msg.className='zip-msg ng';msg.textContent='取得に失敗しました';}
 }
@@ -547,7 +552,7 @@ function validate(){
   }else{seibetsuGroup.style.outline='';}
 
   /* テキスト入力 */
-  ['school','name','furigana','tel','addr','email'].forEach(function(id){
+  ['school','name','furigana','tel','addr','addr2','email'].forEach(function(id){
     var el=document.getElementById(id);
     if(!el.value.trim()){
       el.classList.add('err');
@@ -603,7 +608,8 @@ async function submitForm(){
     seibetsu:(document.querySelector('input[name="seibetsu"]:checked')||{}).value||'',
     tel:formatPhoneForList(document.getElementById('tel').value),
     zip:formatZipForList(document.getElementById('zip').value),
-    addr:document.getElementById('addr').value,
+    // 反応リストL列には住所1・住所2を結合した従来のaddr項目を送る
+    addr:document.getElementById('addr').value.trim()+document.getElementById('addr2').value.trim(),
     email:document.getElementById('email').value,
     message:document.getElementById('message').value||'（なし）'
   };
