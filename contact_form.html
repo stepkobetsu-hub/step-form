@@ -328,22 +328,12 @@ body.success-mode .notice-line{
       </div>
       <div class="row2">
         <div class="field">
-          <label class="flabel" for="name-family">生徒（姓）<span style="color:var(--pink);margin-left:3px">*</span></label>
-          <input type="text" id="name-family" autocomplete="family-name" placeholder="山田">
+          <label class="flabel">お名前<span style="color:var(--pink);margin-left:3px">*</span></label>
+          <input type="text" id="name" placeholder="山田 太郎">
         </div>
         <div class="field">
-          <label class="flabel" for="name-given">生徒（名）<span style="color:var(--pink);margin-left:3px">*</span></label>
-          <input type="text" id="name-given" autocomplete="given-name" placeholder="太郎">
-        </div>
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label class="flabel" for="furigana-family">フリガナ（姓）<span style="color:var(--pink);margin-left:3px">*</span></label>
-          <input type="text" id="furigana-family" placeholder="ヤマダ">
-        </div>
-        <div class="field">
-          <label class="flabel" for="furigana-given">フリガナ（名）<span style="color:var(--pink);margin-left:3px">*</span></label>
-          <input type="text" id="furigana-given" placeholder="タロウ">
+          <label class="flabel">フリガナ<span style="color:var(--pink);margin-left:3px">*</span></label>
+          <input type="text" id="furigana" placeholder="ヤマダ タロウ">
         </div>
       </div>
       <div class="field">
@@ -461,8 +451,8 @@ function prog(){
     !!document.querySelector('input[name="kosha"]:checked'),
     !!document.querySelector('input[name="gakunen"]:checked'),
     document.getElementById('school').value.trim().length>0,
-    document.getElementById('name-family').value.trim().length>0&&document.getElementById('name-given').value.trim().length>0,
-    document.getElementById('furigana-family').value.trim().length>0&&document.getElementById('furigana-given').value.trim().length>0,
+    document.getElementById('name').value.trim().length>0,
+    document.getElementById('furigana').value.trim().length>0,
     !!document.querySelector('input[name="seibetsu"]:checked'),
     document.getElementById('tel').value.trim().length>0,
     document.getElementById('email').value.trim().length>0
@@ -472,7 +462,7 @@ function prog(){
   document.getElementById('prog').style.width=pct+'%';
   document.getElementById('prog-label').textContent='入力状況：'+pct+'%'+(pct===100?' ✅':'');
 }
-['school','name-family','name-given','furigana-family','furigana-given','tel','zip','email','email2','addr','addr2','message'].forEach(function(id){
+['school','name','furigana','tel','zip','email','email2','addr','addr2','message'].forEach(function(id){
   var el=document.getElementById(id);
   if(el)el.addEventListener('input',prog);
 });
@@ -562,7 +552,7 @@ function validate(){
   }else{seibetsuGroup.style.outline='';}
 
   /* テキスト入力 */
-  ['school','name-family','name-given','furigana-family','furigana-given','tel','addr','addr2','email'].forEach(function(id){
+  ['school','name','furigana','tel','addr','addr2','email'].forEach(function(id){
     var el=document.getElementById(id);
     if(!el.value.trim()){
       el.classList.add('err');
@@ -609,8 +599,8 @@ async function submitForm(){
   var kibouVals=Array.from(document.querySelectorAll('input[name="kibou"]:checked')).map(function(c){return c.value;});
   var data={
     timestamp:new Date().toLocaleString('ja-JP'),
-    name:document.getElementById('name-family').value.trim()+' '+document.getElementById('name-given').value.trim(),
-    furigana:document.getElementById('furigana-family').value.trim()+' '+document.getElementById('furigana-given').value.trim(),
+    name:document.getElementById('name').value,
+    furigana:document.getElementById('furigana').value,
     kibou:kibouVals.join('、'),
     kosha:(document.querySelector('input[name="kosha"]:checked')||{}).value||'',
     gakunen:(document.querySelector('input[name="gakunen"]:checked')||{}).value||'',
