@@ -99,7 +99,7 @@
 
   async function refreshRoster(force=false){
     const btn=$('forceRefresh');if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターの最新情報を確認しています…')}
-    try{const data=await authenticated(force?'forceRefresh':'roster');setTeachers(data.teachers||[]);if(force)status(`講師情報を更新しました（${teachers.length}人）。`,'ok')}
+    try{const data=await authenticated('roster');setTeachers(data.teachers||[]);if(force)status(`送信先を再読み込みしました（${teachers.length}人）。講師マスターとの在籍同期は毎時実行します。`,'ok')}
     catch(e){
       // 更新失敗を隠さず、以前の講師一覧を送信先として使用しない。
       teachers=[];selected.clear();render();
