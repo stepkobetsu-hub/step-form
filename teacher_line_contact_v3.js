@@ -99,7 +99,7 @@
 
   async function refreshRoster(force=false){
     const btn=$('forceRefresh');if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターの最新情報を確認しています…')}
-    try{const data=await authenticated('roster');setTeachers(data.teachers||[]);if(force)status(`送信先を再読み込みしました（${teachers.length}人）。講師マスターとの在籍同期は毎時実行します。`,'ok')}
+    try{const data=await authenticated(force?'forceRefresh':'roster');setTeachers(data.teachers||[]);if(force)status(`送信先を再読み込みしました（${teachers.length}人）。講師マスターとの在籍同期は毎時実行します。`,'ok')}
     catch(e){
       // 更新失敗を隠さず、以前の講師一覧を送信先として使用しない。
       teachers=[];selected.clear();render();
@@ -108,6 +108,27 @@
     finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
   }
 
+  function formatStamp(v){if(!v)return '—';const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}
+  async function loadRegistrationStatus(){
+    const b=$('checkRegistration');b.disabled=true;b.textContent='照合しています…';
+    const body=$('registrationBody');body.textContent='Apps ScriptとSupabaseを照合中…';
+    try{
+      const x=await authenticated('registrationStatus');
+      body.replaceChildren();
+      for(const r of x.records||[]){
+        const tr=document.createElement('tr');
+        const vals=[r.code+' '+r.name,r.school||'—',r.status,r.registeredAt?formatStamp(r.registeredAt):'—',formatStamp(r.checkedAt),r.note||''];
+        for(const v of vals){const td=document.createElement('td');td.textContent=v;td.style.padding='9px';td.style.borderBottom='1px solid #e6efeb';tr.append(td)}
+        tr.children[2].style.fontWeight='900';
+        tr.children[2].style.color=r.status==='登録済'?'#08783b':r.status==='未登録'?'#aa3825':'#9a6300';
+        if(r.code==='7042')tr.style.background='#fff5dd';
+        body.append(tr);
+      }
+      $('registrationUpdated').textContent='最終照合：'+formatStamp(x.checkedAt)+'（日本時間）';
+    }catch(e){body.textContent='照合に失敗しました：'+e.message;$('registrationUpdated').textContent='再照合してください';}
+    finally{b.disabled=false;b.textContent='登録状況を再照合'}
+  }
+  $('checkRegistration').addEventListener('click',loadRegistrationStatus);
   function historyContentCell(r){
     const td=document.createElement('td');
     const details=document.createElement('details');
