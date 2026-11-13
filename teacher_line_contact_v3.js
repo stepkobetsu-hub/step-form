@@ -99,27 +99,18 @@
 
   async function refreshRoster(force=false){
     const btn=$('forceRefresh');
-    if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターを照合しています…')}
+    if(force){btn.disabled=true;btn.textContent='更新しています…';status('Supabaseの送信先一覧を取得しています…')}
     try{
-      let data,warning='';
-      if(force){
-        try{data=await authenticated('forceRefresh')}
-        catch(e){
-          warning='講師マスターとの強制同期に失敗しました（'+e.message+'）。';
-          // Sync failures must not blank the verified active roster stored on the server.
-          data=await authenticated('roster');
-        }
-      } else data=await authenticated('roster');
+      const data=await authenticated(force?'forceRefresh':'roster');
       setTeachers(data.teachers||[]);
-      if(warning)status(warning+' Supabaseで確認できた在籍講師 '+teachers.length+'人を表示しています。マスターの更新は未完了です。','error');
-      else if(force)status('講師情報を更新しました（'+teachers.length+'人）。','ok');
+      if(force)status('送信先一覧を再読み込みしました（在籍講師 '+teachers.length+'人）。講師マスターとの同期は定期処理で行われます。','ok');
       else status('');
     }catch(e){
       // Never fall back to cached recipients. Only a successful authenticated
       // server roster response can be used for selecting send targets.
       teachers=[];selected.clear();render();
       status('講師一覧の取得に失敗しました：'+e.message+'。古い情報への誤送信を防ぐため、送信先を表示していません。','error');
-    }finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
+    }finally{if(force){btn.disabled=false;btn.textContent='送信先一覧を再読込'}}
   }
 
   function formatStamp(v){if(!v)return '—';const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}
