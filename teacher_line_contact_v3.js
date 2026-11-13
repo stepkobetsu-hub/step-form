@@ -100,7 +100,11 @@
   async function refreshRoster(force=false){
     const btn=$('forceRefresh');if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターの最新情報を確認しています…')}
     try{const data=await authenticated(force?'forceRefresh':'roster');setTeachers(data.teachers||[]);if(force)status(`講師情報を更新しました（${teachers.length}人）。`,'ok')}
-    catch(e){if(force)status(e.message,'error')}
+    catch(e){
+      // 更新失敗を隠さず、以前の講師一覧を送信先として使用しない。
+      teachers=[];selected.clear();render();
+      status('講師一覧の取得に失敗しました：'+e.message+'。古い情報への誤送信を防ぐため、送信先を表示していません。','error');
+    }
     finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
   }
 
@@ -187,7 +191,10 @@
   async function init(){
     const help=document.querySelector('#loginOverlay .help');if(help)help.textContent='初回だけ確認します。ご自身でログアウトするまで有効です。';
     $('body').value=localStorage.getItem(DRAFT_KEY)||'';updateBody();
-    const cache=cachedRoster();if(cache.length)setTeachers(cache);$('app').classList.remove('hidden');
+    // 退職済み講師を古い端末キャッシュから再表示しない。
+    // 講師一覧はサーバーで在籍確認できたものだけ表示する。
+    $('app').classList.remove('hidden');
+    $('teacherList').innerHTML='<div class="empty">講師情報を確認中です…</div>';
     await ensureSession();
     await refreshRoster(false);
     await Promise.all([loadHistory(),checkHealth()]);
