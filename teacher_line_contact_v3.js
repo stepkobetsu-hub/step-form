@@ -98,14 +98,28 @@
   function setTeachers(list){teachers=(list||[]).map(t=>({code:String(t.code),name:String(t.name||''),kana:String(t.kana||''),school:String(t.school||'')}));for(const c of [...selected])if(!teachers.some(t=>t.code===c))selected.delete(c);saveRoster(teachers);render()}
 
   async function refreshRoster(force=false){
-    const btn=$('forceRefresh');if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターの最新情報を確認しています…')}
-    try{const data=await authenticated(force?'forceRefresh':'roster');setTeachers(data.teachers||[]);if(force)status(`送信先を再読み込みしました（${teachers.length}人）。講師マスターとの在籍同期は毎時実行します。`,'ok')}
-    catch(e){
-      // 更新失敗を隠さず、以前の講師一覧を送信先として使用しない。
+    const btn=$('forceRefresh');
+    if(force){btn.disabled=true;btn.textContent='更新しています…';status('講師マスターを照合しています…')}
+    try{
+      let data,warning='';
+      if(force){
+        try{data=await authenticated('forceRefresh')}
+        catch(e){
+          warning='講師マスターとの強制同期に失敗しました（'+e.message+'）。';
+          // Sync failures must not blank the verified active roster stored on the server.
+          data=await authenticated('roster');
+        }
+      } else data=await authenticated('roster');
+      setTeachers(data.teachers||[]);
+      if(warning)status(warning+' Supabaseで確認できた在籍講師 '+teachers.length+'人を表示しています。マスターの更新は未完了です。','error');
+      else if(force)status('講師情報を更新しました（'+teachers.length+'人）。','ok');
+      else status('');
+    }catch(e){
+      // Never fall back to cached recipients. Only a successful authenticated
+      // server roster response can be used for selecting send targets.
       teachers=[];selected.clear();render();
       status('講師一覧の取得に失敗しました：'+e.message+'。古い情報への誤送信を防ぐため、送信先を表示していません。','error');
-    }
-    finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
+    }finally{if(force){btn.disabled=false;btn.textContent='講師情報を強制更新'}}
   }
 
   function formatStamp(v){if(!v)return '—';const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}
