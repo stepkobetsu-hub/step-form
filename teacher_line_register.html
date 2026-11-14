@@ -44,7 +44,7 @@
           <p class="note" style="font-weight:800;color:#a34b1c">LINEのトーク画面が開いたら、必ず送信ボタン（紙飛行機）を押してください。開くだけでは送信されません。</p>
         </div>
         <button class="secondary closeButton" type="button" onclick="closePage()">メッセージを送ったら閉じる</button>
-        <button class="secondary closeButton" type="button" onclick="closePage()">ページを閉じる</button>
+        
         <button class="secondary" type="button" onclick="startReregister()">再登録する</button>
       </div>
       <div id="friendPending" class="registeredPanel" hidden>
@@ -88,7 +88,7 @@ let officialAccountBasicId='';
 function showStatus(message,type){const el=document.getElementById('status');el.textContent=message;el.className='status '+type}
 function updateCompletionMessage(){
   const field=document.getElementById('completionFullName');
-  const name=field.value.trim().replace(/\\s+/g,' ');
+  const name=field.value.trim().replace(/\s+/g,' ');
   const valid=name.length>=2 && !/[0-9０-９]/.test(name) && !/^先生/.test(name);
   const message='お友達登録完了：'+name;
   document.getElementById('completionMessagePreview').textContent=valid?message:'先生のフルネームを入力してください。';
