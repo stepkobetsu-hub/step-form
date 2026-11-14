@@ -18,7 +18,7 @@
     .verifyNotice strong{display:block;margin-bottom:6px;color:#c62828;font-size:23px;line-height:1.35}.verifyNotice .six{font-size:25px;color:#b45309}.otpLabel{font-size:18px;color:#7c2d12}.completeButton{font-size:18px!important;padding:17px!important}
     .verifyNotice.done{border-color:#16a34a;background:#eafff1;color:#126b38;box-shadow:0 8px 20px rgba(22,163,74,.18)}.verifyNotice.done strong{color:#126b38}
     .registeredPanel{text-align:center;padding:8px 0 4px}.registeredMark{width:82px;height:82px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:#06c755;color:#fff;font-size:48px;font-weight:900;box-shadow:0 10px 24px rgba(6,199,85,.24)}.registeredPanel h2{margin:0 0 10px;color:#08783b;font-size:30px;line-height:1.35}.registeredPanel p{margin:0 0 22px;color:#45665c;font-size:16px;line-height:1.7}.closeButton{font-size:16px!important;padding:12px!important}.registeredPanel .closeButton{background:#eef4f2!important;color:#31594f!important}.friendLink{display:block;margin:0 0 14px;padding:26px 15px;border-radius:14px;background:#06c755;color:#fff;text-align:center;text-decoration:none;font-size:19px;font-weight:900}.friendNote{margin:0 0 12px!important;font-size:14px!important;color:#45665c}
-    .note{font-size:12px;color:#71827d;line-height:1.6;margin-top:18px}.loading{text-align:center;padding:20px;color:#56746c}
+    .completion-box{text-align:left;border:2px solid #b9efd0;border-radius:16px;background:#f6fff9;padding:16px;margin:16px 0}.completion-box label{margin-top:0}.completion-preview{background:white;border:1px solid #a7dabe;border-radius:10px;padding:14px;font-size:17px;font-weight:800;margin:12px 0;word-break:break-word}.completion-box .friendLink{padding:16px 10px;font-size:17px;margin-top:12px}.note{font-size:12px;color:#71827d;line-height:1.6;margin-top:18px}.loading{text-align:center;padding:20px;color:#56746c}
   </style>
 </head>
 <body>
@@ -31,10 +31,19 @@
     <div id="content" hidden>
       <div id="registeredView" class="registeredPanel" hidden>
         <div class="registeredMark">✓</div>
-        <h2>登録完了（友だち確認済み）</h2>
+        <h2>LINE連携・友だち確認済み</h2>
         <p id="registeredName">このLINEは授業報告の通知先として登録されています。</p>
-        <p class="friendNote">「個別指導STEP」公式LINEの友だち追加とLINE連携を確認しました。これで登録手続きは完了です。</p>
-        <a class="friendLink" href="https://line.me/ti/p/NpNEednN46" target="_blank" rel="noopener noreferrer">塾長のLINEを友だち追加</a>
+        <p class="friendNote">最後に、先生のフルネームで登録完了メッセージをSTEP公式LINEへ送ってください。LINEの表示名ではなく本名を使用します。</p>
+        <div class="completion-box">
+          <label for="completionFullName">先生のお名前（フルネーム）</label>
+          <input id="completionFullName" autocomplete="name" placeholder="例：山田太郎" maxlength="50" oninput="updateCompletionMessage()">
+          <p class="note" style="margin:8px 0">お名前は自動入力されます。間違っていれば修正してください。</p>
+          <div id="completionMessagePreview" class="completion-preview">お名前を入力してください。</div>
+          <a id="sendCompletionMessage" class="friendLink" href="#" target="_blank" rel="noopener noreferrer" hidden>LINEで登録完了メッセージを送る</a>
+          <p id="completionSendHelp" class="note">確認中です。送信先のSTEP公式LINEが準備できるとボタンが表示されます。</p>
+          <p class="note" style="font-weight:800;color:#a34b1c">LINEのトーク画面が開いたら、必ず送信ボタン（紙飛行機）を押してください。開くだけでは送信されません。</p>
+        </div>
+        <button class="secondary closeButton" type="button" onclick="closePage()">メッセージを送ったら閉じる</button>
         <button class="secondary closeButton" type="button" onclick="closePage()">ページを閉じる</button>
         <button class="secondary" type="button" onclick="startReregister()">再登録する</button>
       </div>
@@ -74,11 +83,32 @@
 const LIFF_ID='1656223408-fglvoMbI';
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbz6_kf6oXCUycashVMMQ9-hrA73CtopL7xwPsm0DYkE5MxXJyxJrhkdnghIS70_KC641w/exec';
 let lineProfile=null;
+let officialAccountBasicId='';
 
 function showStatus(message,type){const el=document.getElementById('status');el.textContent=message;el.className='status '+type}
+function updateCompletionMessage(){
+  const field=document.getElementById('completionFullName');
+  const name=field.value.trim().replace(/\\s+/g,' ');
+  const valid=name.length>=2 && !/[0-9０-９]/.test(name) && !/^先生/.test(name);
+  const message='お友達登録完了：'+name;
+  document.getElementById('completionMessagePreview').textContent=valid?message:'先生のフルネームを入力してください。';
+  const a=document.getElementById('sendCompletionMessage');
+  a.hidden=!(valid&&officialAccountBasicId);
+  if(valid&&officialAccountBasicId) {
+    a.href='https://line.me/R/oaMessage/'+encodeURIComponent(officialAccountBasicId)+'/?'+encodeURIComponent(message);
+  }else a.removeAttribute('href');
+  document.getElementById('completionSendHelp').textContent=
+    !valid?'フルネームを入力すると送信ボタンが表示されます。':
+    !officialAccountBasicId?'STEP公式LINEの送信先を確認できませんでした。画面を再読み込みして再試行してください。':
+    '送信先は「個別指導STEP」の公式LINEです。名前を確認してボタンを押してください。';
+}
 function showRegisteredView(state){
   const name=state&&state.name?state.name+'先生のLINE通知は登録済みです。':'このLINEは授業報告の通知先として登録されています。';
   document.getElementById('registeredName').textContent=name;
+  const input=document.getElementById('completionFullName');
+  const registeredFullName=String(state&&state.name||'').replace(/先生$/,'').trim();
+  if(registeredFullName && !input.value.trim())input.value=registeredFullName;
+  updateCompletionMessage();
   document.getElementById('registrationForm').hidden=true;
   document.getElementById('friendPending').hidden=true;
   document.getElementById('registeredView').hidden=false;
@@ -130,9 +160,11 @@ async function loadOfficialFriendLink(){
     if(!r.ok)return;
     const data=await r.json();
     if(data&&/^@[a-zA-Z0-9._-]+$/.test(data.basicId||'')){
+      officialAccountBasicId=data.basicId;
       const a=document.getElementById('officialFriendLink');
       a.href='https://line.me/R/ti/p/'+encodeURIComponent(data.basicId);
       a.hidden=false;
+      updateCompletionMessage();
     }
   }catch(_){}
 }
