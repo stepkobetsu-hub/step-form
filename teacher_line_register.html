@@ -31,12 +31,22 @@
     <div id="content" hidden>
       <div id="registeredView" class="registeredPanel" hidden>
         <div class="registeredMark">✓</div>
-        <h2>登録完了済みです</h2>
+        <h2>登録完了（友だち確認済み）</h2>
         <p id="registeredName">このLINEは授業報告の通知先として登録されています。</p>
-        <p class="friendNote">続けて、塾長・加瀬の個人LINEを友達追加してください。</p>
+        <p class="friendNote">「個別指導STEP」公式LINEの友だち追加とLINE連携を確認しました。これで登録手続きは完了です。</p>
         <a class="friendLink" href="https://line.me/ti/p/NpNEednN46" target="_blank" rel="noopener noreferrer">塾長のLINEを友だち追加</a>
         <button class="secondary closeButton" type="button" onclick="closePage()">ページを閉じる</button>
         <button class="secondary" type="button" onclick="startReregister()">再登録する</button>
+      </div>
+      <div id="friendPending" class="registeredPanel" hidden>
+        <div class="verifyNotice"><strong>まだ登録は完了していません！</strong>
+          LINE通知先の連携は済んでいますが、「個別指導STEP」公式LINEの友だち追加・ブロック解除が未確認です。
+          友だち追加を済ませてから、下の確認ボタンを押してください。
+        </div>
+        <button id="addFriendButton" class="primary" type="button" onclick="requestOfficialFriendship()">公式LINEを友だち追加・ブロック解除</button>
+        <button id="checkFriendButton" class="secondary" type="button" onclick="verifyFriendship()">友だち追加済みか確認する</button>
+        <div id="friendCheckStatus" class="status info" style="display:block" role="status">公式LINEを友だち追加していない場合、通知は届きません。塾長の個人LINEとは別のアカウントです。</div>
+        <button class="secondary" type="button" onclick="startReregister()">登録先LINEを変更する</button>
       </div>
       <div id="registrationForm">
       <div id="profile" class="profile"><img id="profileImage" alt=""><div><strong id="profileName"></strong><small>このLINEに通知します</small></div></div>
@@ -69,16 +79,57 @@ function showRegisteredView(state){
   const name=state&&state.name?state.name+'先生のLINE通知は登録済みです。':'このLINEは授業報告の通知先として登録されています。';
   document.getElementById('registeredName').textContent=name;
   document.getElementById('registrationForm').hidden=true;
+  document.getElementById('friendPending').hidden=true;
   document.getElementById('registeredView').hidden=false;
 }
 function startReregister(){
   document.getElementById('registeredView').hidden=true;
+  document.getElementById('friendPending').hidden=true;
   document.getElementById('registrationForm').hidden=false;
   document.getElementById('teacherCode').readOnly=false;
   document.getElementById('otpArea').hidden=true;
   const button=document.getElementById('otpButton');
   button.hidden=false;button.disabled=false;button.className='primary';button.textContent='確認番号をメールで受け取る';
   showStatus('登録先のLINEを変更する場合だけ、確認番号を受け取って再登録してください。','info');
+}
+let linkedRegistration=null;
+function pendingFriendship(message){
+  document.getElementById('registeredView').hidden=true;
+  document.getElementById('registrationForm').hidden=true;
+  document.getElementById('friendPending').hidden=false;
+  const el=document.getElementById('friendCheckStatus');
+  el.textContent=message||'公式LINEを友だち追加し、「友だち追加済みか確認する」を押してください。';
+  el.className='status info';el.style.display='block';
+}
+async function verifyFriendship(){
+  const b=document.getElementById('checkFriendButton');b.disabled=true;
+  b.textContent='友だち状態を確認中…';
+  try{
+    if(!lineProfile||!lineProfile.userId)throw new Error('LINEにログインして再度確認してください。');
+    // LINE's authoritative friendship flag is only available for the official account
+    // linked to this LINE Login channel. Unknown must never count as confirmed.
+    const f=await liff.getFriendship();
+    if(f&&f.friendFlag===true){
+      if(!linkedRegistration||!linkedRegistration.linked){throw new Error('LINE通知先の登録を確認できません。')}
+      const code=String(linkedRegistration.code||document.getElementById('teacherCode').value||'');
+      if(!/^7\d{3}$/.test(code))throw new Error('講師コードの照合が必要です。');
+      const recheck=await jsonp({action:'teacherLineLinkStatus',code,userId:lineProfile.userId});
+      if(!recheck||!recheck.linked)throw new Error('登録情報の再確認に失敗しました。');
+      showRegisteredView(recheck);
+    }else pendingFriendship('公式LINEの友だち追加が確認できません。友だち追加またはブロック解除後に、再確認してください。');
+  }catch(error){
+    pendingFriendship('友だち状態を確認できませんでした（'+(error.message||String(error))+'）。LINE DevelopersでSTEP公式アカウントとLINEログインチャネルのリンク設定も確認してください。確認できるまでは登録完了になりません。');
+  }finally{b.disabled=false;b.textContent='友だち追加済みか確認する'}
+}
+async function requestOfficialFriendship(){
+  const b=document.getElementById('addFriendButton');b.disabled=true;
+  try{
+    if(typeof liff.requestFriendship!=='function')throw new Error('このLINE環境では友だち追加画面を直接開けません。');
+    await liff.requestFriendship();
+    await verifyFriendship();
+  }catch(error){
+    pendingFriendship('友だち追加画面を開けませんでした。LINEアプリで「個別指導STEP」の公式アカウントを友だち追加し、ここに戻って再確認してください。（'+(error.message||String(error))+'）');
+  }finally{b.disabled=false}
 }
 function closePage(){
   try{if(window.liff&&liff.isInClient()){liff.closeWindow();return}}catch(_){}
@@ -101,7 +152,11 @@ async function init(){
     if(savedCode){
       try{
         const state=await jsonp({action:'teacherLineLinkStatus',code:savedCode,userId:lineProfile.userId||''});
-        if(state&&state.linked)showRegisteredView(state);
+        if(state&&state.linked){
+          linkedRegistration={...state,code:savedCode};
+          pendingFriendship('公式アカウントとの友だち関係を確認しています…');
+          await verifyFriendship();
+        }
       }catch(_){ }
     }
   }catch(error){
@@ -125,8 +180,10 @@ async function registerLine(){
     const state=await jsonp({action:'teacherLineLinkStatus',code});
     if(!state||!state.linked)throw new Error('登録を確認できませんでした。確認番号を確認して、もう一度お試しください。');
     localStorage.setItem('teacherCode',code);
-    button.textContent='登録完了';
-    showRegisteredView(state);
+    button.textContent='通知先の連携済み';
+    linkedRegistration={...state,code};
+    pendingFriendship('LINE通知先が保存されました。公式LINEの友だち追加も確認して、登録を完了してください。');
+    await verifyFriendship();
   }catch(error){
     showStatus(error.message||'登録できませんでした。もう一度お試しください。','error');
     button.disabled=false;button.textContent='このLINEを登録する';
